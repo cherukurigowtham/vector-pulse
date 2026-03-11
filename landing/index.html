@@ -575,25 +575,23 @@
   <!-- Navigation -->
   <nav>
     <div class="container">
-      <div style="display: flex; align-items: center; gap: 32px;">
-        <div class="logo">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
-              stroke="white" stroke-width="2" stroke-linecap="round" />
-            <path d="M12 6V12L16 16" stroke="white" stroke-width="2" stroke-linecap="round" />
-          </svg>
-          Vector Pulse
-        </div>
-        <div id="auth-nav-container" style="display: flex; gap: 12px; align-items: center;">
-          <button onclick="openModal('login')" class="btn" style="background:none; color:var(--text-2); padding: 8px 12px; font-size: 0.9375rem; border:none;">Log In</button>
-          <button onclick="openModal('signup')" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.8125rem; font-family: var(--font-sans);">Sign Up</button>
-        </div>
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+            stroke="white" stroke-width="2" stroke-linecap="round" />
+          <path d="M12 6V12L16 16" stroke="white" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        Vector Pulse
       </div>
       <div class="nav-links">
         <a href="#how-it-works">Integration</a>
         <a href="#engine">Engine</a>
         <a href="#pricing">Pricing</a>
+        <div id="auth-nav-container" style="display: flex; gap: 16px; align-items: center; margin-left: 16px;">
+          <button onclick="openModal('login')" class="btn" style="background:none; color:var(--text-2); padding: 8px 12px; font-size: 0.9375rem; border:none;">Log In</button>
+          <button onclick="openModal('signup')" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.8125rem; font-family: var(--font-sans);">Sign Up</button>
+        </div>
       </div>
     </div>
   </nav>
