@@ -693,8 +693,30 @@
               API keys.</li>
           </ul>
 
-          <button onclick="openModal()" class="btn btn-secondary">Get API Credentials</button>
-        </div>
+          <!-- Inline Auth Widget -->
+          <div id="inlineAuthWidget" style="background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 32px; margin-top: 32px; max-width: 400px; box-shadow: var(--shadow-sm);">
+            <div id="inlineAuthFlow">
+              <div style="display:flex; border-bottom:1px solid var(--border); margin-bottom:24px;">
+                <button id="inlineTabSignup" onclick="switchInlineTab('signup')" style="flex:1; padding:8px; background:none; border:none; color:var(--text-1); border-bottom:2px solid var(--brand); cursor:pointer; font-size:14px; font-weight:500;">Sign Up</button>
+                <button id="inlineTabLogin" onclick="switchInlineTab('login')" style="flex:1; padding:8px; background:none; border:none; color:var(--text-3); border-bottom:2px solid transparent; cursor:pointer; font-size:14px; font-weight:500;">Log In</button>
+              </div>
+              <p style="color:var(--text-2); font-size:0.875rem; margin-bottom: 24px;" id="inlineAuthDesc">Create a free account to generate your live key.</p>
+              
+              <form id="inlineAuthForm" onsubmit="handleInlineAuth(event)">
+                <input type="email" id="inlineEmailInput" class="form-input" placeholder="you@company.com" required style="padding: 10px 14px; font-size: 0.875rem; margin-bottom: 12px;"/>
+                <input type="password" id="inlinePasswordInput" class="form-input" placeholder="Password" required minlength="6" style="padding: 10px 14px; font-size: 0.875rem; margin-bottom: 16px;"/>
+                <button type="submit" class="btn btn-primary" style="width:100%; padding: 10px;" id="inlineAuthSubmitBtn">Create Account</button>
+              </form>
+              <div id="inline-modal-error" style="color: var(--danger); font-size: 0.8125rem; margin-top: 12px; display: none;"></div>
+            </div>
+            
+            <div id="inlineDashboardFlow" style="display:none;">
+              <h3 style="font-size: 1.125rem; margin-bottom: 4px;">Your API Environment</h3>
+              <p style="color:var(--text-2); font-size:0.875rem; margin-bottom: 16px;">Include this key in the Authorization header of your requests.</p>
+              <div class="key-display" id="inlineKeyDisplay" style="display:block; margin-bottom: 16px; font-size: 0.75rem; padding: 12px;"></div>
+              <button onclick="handleLogout()" class="btn btn-secondary" style="width:100%; border:1px solid var(--danger); color:var(--danger); font-size:0.875rem; padding: 8px;">Log Out Session</button>
+            </div>
+          </div>
 
         <div class="code-block">
           <div class="cmt"># POST /v1/risk-check</div>
@@ -927,6 +949,58 @@
       }
     }
 
+    let currentInlineMode = 'signup';
+    
+    function switchInlineTab(mode) {
+      currentInlineMode = mode;
+      document.getElementById('inline-modal-error').style.display = 'none';
+      if (mode === 'signup') {
+        document.getElementById('inlineTabSignup').style.color = 'var(--text-1)';
+        document.getElementById('inlineTabSignup').style.borderBottomColor = 'var(--brand)';
+        document.getElementById('inlineTabLogin').style.color = 'var(--text-3)';
+        document.getElementById('inlineTabLogin').style.borderBottomColor = 'transparent';
+        document.getElementById('inlineAuthDesc').textContent = 'Create a free account to generate your live key.';
+        document.getElementById('inlineAuthSubmitBtn').textContent = 'Create Account';
+      } else {
+        document.getElementById('inlineTabLogin').style.color = 'var(--text-1)';
+        document.getElementById('inlineTabLogin').style.borderBottomColor = 'var(--brand)';
+        document.getElementById('inlineTabSignup').style.color = 'var(--text-3)';
+        document.getElementById('inlineTabSignup').style.borderBottomColor = 'transparent';
+        document.getElementById('inlineAuthDesc').textContent = 'Log back in to view your API key.';
+        document.getElementById('inlineAuthSubmitBtn').textContent = 'Log In';
+      }
+    }
+
+    async function handleInlineAuth(e) {
+      e.preventDefault();
+      const email = document.getElementById('inlineEmailInput').value;
+      const password = document.getElementById('inlinePasswordInput').value;
+      const btn = document.getElementById('inlineAuthSubmitBtn');
+      const err = document.getElementById('inline-modal-error');
+      
+      btn.textContent = 'Processing...'; btn.disabled = true; err.style.display = 'none';
+      
+      try {
+        const endpoint = currentInlineMode === 'signup' ? '/auth/signup' : '/auth/login';
+        const res = await fetch(`https://vector-pulse-b97i.onrender.com/v1${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'omit',
+          body: JSON.stringify({ email, password })
+        });
+        
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.detail || 'Authentication failed');
+        
+        await checkSession();
+      } catch(e) {
+        err.textContent = e.message;
+        err.style.display = 'block';
+        btn.textContent = currentInlineMode === 'signup' ? 'Create Account' : 'Log In'; 
+        btn.disabled = false;
+      }
+    }
+
     async function handleAuth(e) {
       e.preventDefault();
       const email = document.getElementById('emailInput').value;
@@ -940,7 +1014,7 @@
         const endpoint = currentMode === 'signup' ? '/auth/signup' : '/auth/login';
         
         // Ensure credentials are included to process cookies
-        const res = await fetch(`http://localhost:8000/v1${endpoint}`, {
+        const res = await fetch(`https://vector-pulse-b97i.onrender.com/v1${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'omit', // Vercel handles API differently, omit cookies during initial test
@@ -962,11 +1036,16 @@
     }
     
     async function handleLogout() {
-      await fetch('http://localhost:8000/v1/auth/logout', { method: 'POST', credentials: 'omit' });
+      await fetch('https://vector-pulse-b97i.onrender.com/v1/auth/logout', { method: 'POST', credentials: 'omit' });
       document.getElementById('authFlow').style.display = 'block';
       document.getElementById('dashboardFlow').style.display = 'none';
       document.getElementById('emailInput').value = '';
       document.getElementById('passwordInput').value = '';
+      
+      document.getElementById('inlineAuthFlow').style.display = 'block';
+      document.getElementById('inlineDashboardFlow').style.display = 'none';
+      document.getElementById('inlineEmailInput').value = '';
+      document.getElementById('inlinePasswordInput').value = '';
       
       const navContainer = document.getElementById('auth-nav-container');
       navContainer.innerHTML = `
@@ -978,12 +1057,16 @@
     
     async function checkSession() {
       try {
-        const res = await fetch('http://localhost:8000/v1/auth/me', { credentials: 'omit' });
+        const res = await fetch('https://vector-pulse-b97i.onrender.com/v1/auth/me', { credentials: 'omit' });
         if(res.ok) {
           const data = await res.json();
           document.getElementById('authFlow').style.display = 'none';
           document.getElementById('dashboardFlow').style.display = 'block';
           document.getElementById('keyDisplay').textContent = data.api_key;
+          
+          document.getElementById('inlineAuthFlow').style.display = 'none';
+          document.getElementById('inlineDashboardFlow').style.display = 'block';
+          document.getElementById('inlineKeyDisplay').textContent = data.api_key;
           
           const navContainer = document.getElementById('auth-nav-container');
           navContainer.innerHTML = `<button onclick="openModal('login')" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.8125rem; font-family: var(--font-sans);">Dashboard</button>`;
