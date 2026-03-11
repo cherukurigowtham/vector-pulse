@@ -588,8 +588,9 @@
         <a href="#how-it-works">Integration</a>
         <a href="#engine">Engine</a>
         <a href="#pricing">Pricing</a>
-        <div id="auth-nav-container">
-          <button onclick="openModal()" id="navAuthBtn" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.8125rem; font-family: var(--font-sans);">Get API Key</button>
+        <div id="auth-nav-container" style="display: flex; gap: 16px; align-items: center;">
+          <button onclick="openModal('login')" class="btn" style="background:none; color:var(--text-2); padding: 8px 12px; font-size: 0.9375rem; border:none;">Log In</button>
+          <button onclick="openModal('signup')" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.8125rem; font-family: var(--font-sans);">Sign Up</button>
         </div>
       </div>
     </div>
@@ -886,7 +887,10 @@
   <script>
     // Modal Logic
     const modal = document.getElementById('keyModal');
-    function openModal() { modal.classList.add('active'); }
+    function openModal(mode = 'signup') { 
+      modal.classList.add('active'); 
+      switchTab(mode);
+    }
     function closeModal() { 
       modal.classList.remove('active'); 
       setTimeout(() => {
@@ -895,8 +899,9 @@
         document.getElementById('closeBtn').style.display = 'none';
         document.getElementById('modal-error').style.display = 'none';
         document.getElementById('emailInput').value = '';
-        document.getElementById('requestBtn').textContent = 'Generate Key';
-        document.getElementById('requestBtn').disabled = false;
+        document.getElementById('passwordInput').value = '';
+        document.getElementById('authSubmitBtn').disabled = false;
+        switchTab('signup');
       }, 200);
     }
 
@@ -962,8 +967,13 @@
       document.getElementById('dashboardFlow').style.display = 'none';
       document.getElementById('emailInput').value = '';
       document.getElementById('passwordInput').value = '';
-      document.getElementById('navAuthBtn').textContent = 'Log In / Sign Up';
-      switchTab('login');
+      
+      const navContainer = document.getElementById('auth-nav-container');
+      navContainer.innerHTML = `
+        <button onclick="openModal('login')" class="btn" style="background:none; color:var(--text-2); padding: 8px 12px; font-size: 0.9375rem; border:none;">Log In</button>
+        <button onclick="openModal('signup')" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.8125rem; font-family: var(--font-sans);">Sign Up</button>
+      `;
+      closeModal();
     }
     
     async function checkSession() {
@@ -974,7 +984,9 @@
           document.getElementById('authFlow').style.display = 'none';
           document.getElementById('dashboardFlow').style.display = 'block';
           document.getElementById('keyDisplay').textContent = data.api_key;
-          document.getElementById('navAuthBtn').textContent = 'My API Key';
+          
+          const navContainer = document.getElementById('auth-nav-container');
+          navContainer.innerHTML = `<button onclick="openModal('login')" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.8125rem; font-family: var(--font-sans);">Dashboard</button>`;
         }
       } catch(e) {
         console.log("No active session");
