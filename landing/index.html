@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vector-Pulse | Advanced RTO Fraud Prevention</title>
+  <meta name="description"
+    content="AI-driven fraud detection to eliminate Cash-on-Delivery RTO losses for enterprise e-commerce. Sub-second decision latency." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    :root {
+      /* Refined Minimalist Dark Theme */
+      --bg: #0A0A0A;
+      --surface-1: #111111;
+      --surface-2: #1A1A1A;
+      --surface-3: #222222;
+
+      --border: #2A2A2A;
+      --border-hover: #3A3A3A;
+
+      --text-1: #FAFAFA;
+      --text-2: #A1A1AA;
+      --text-3: #71717A;
+
+      --brand: #FFFFFF;
+      --accent: #3B82F6;
+      /* Professional True Blue */
+      --accent-hover: #2563EB;
+
+      --success: #10B981;
+      --danger: #EF4444;
+      --warning: #F59E0B;
+
+      --radius-sm: 6px;
+      --radius-md: 12px;
+      --radius-lg: 24px;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.8);
+
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --content-max: 1200px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      background: var(--bg);
+    }
+
+    body {
+      font-family: var(--font-sans);
+      color: var(--text-1);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ── Typography & Globals ── */
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    .container {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-2);
+      margin-bottom: 24px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 12px var(--success);
+    }
+
+    /* ── Utility Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 24px;
+      border-radius: var(--radius-sm);
+      font-size: 0.9375rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--brand);
+      color: var(--bg);
+      border: 1px solid transparent;
+    }
+
+    .btn-primary:hover {
+      background: #E4E4E7;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--surface-2);
+      color: var(--text-1);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--surface-3);
+      border-color: var(--border-hover);
+    }
+
+    /* ── Navigation ── */
+    nav {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 100;
+      background: rgba(10, 10, 10, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    nav .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 64px;
+    }
+
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+      font-size: 0.9375rem;
+      color: var(--text-2);
+    }
+
+    .nav-links a:hover {
+      color: var(--text-1);
+    }
+
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none;
+      }
+    }
+
+    /* ── Hero Section ── */
+    .hero {
+      padding: 160px 0 100px;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: clamp(3rem, 7vw, 5.5rem);
+      margin-bottom: 24px;
+      max-width: 900px;
+      margin-inline: auto;
+    }
+
+    .hero p {
+      font-size: clamp(1.125rem, 2vw, 1.375rem);
+      color: var(--text-2);
+      max-width: 680px;
+      margin-inline: auto;
+      margin-bottom: 40px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    /* ── Metrics Grid ── */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin: 60px auto 0;
+    }
+
+    @media (max-width: 768px) {
+      .metrics {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .metric-card {
+      background: var(--surface-1);
+      padding: 32px 24px;
+      text-align: center;
+    }
+
+    .metric-val {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      margin-bottom: 8px;
+    }
+
+    /* Subtle gradient for primary metric */
+    .metric-primary {
+      background: linear-gradient(180deg, #FFFFFF 0%, #A1A1AA 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .metric-label {
+      font-size: 0.875rem;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 500;
+    }
+
+    /* ── Section Structure ── */
+    section {
+      padding: 120px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-header {
+      margin-bottom: 64px;
+    }
+
+    .section-title {
+      font-size: 2.5rem;
+      margin-bottom: 16px;
+    }
+
+    .section-desc {
+      font-size: 1.125rem;
+      color: var(--text-2);
+      max-width: 600px;
+    }
+
+    /* ── Live Terminal Console ── */
+    .terminal-container {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 968px) {
+      .terminal-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .terminal {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .term-header {
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .term-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+
+    .term-title {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-3);
+      margin-left: 8px;
+    }
+
+    .term-body {
+      padding: 24px;
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      line-height: 2;
+      height: 380px;
+      overflow-y: hidden;
+      color: var(--text-2);
+    }
+
+    .log-row {
+      display: flex;
+      gap: 16px;
+    }
+
+    .log-timestamp {
+      color: var(--text-3);
+    }
+
+    .log-tag {
+      font-weight: 600;
+      width: 60px;
+    }
+
+    .tag-allow {
+      color: var(--success);
+    }
+
+    .tag-block {
+      color: var(--danger);
+    }
+
+    .log-detail {
+      flex: 1;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .log-reason {
+      color: var(--text-1);
+    }
+
+    /* ── Feature Blocks ── */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    @media (max-width: 768px) {
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .feature-card {
+      padding: 32px;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      transition: border-color 0.2s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-hover);
+    }
+
+    .feature-card h3 {
+      font-size: 1.25rem;
+      margin-bottom: 12px;
+    }
+
+    .feature-card p {
+      color: var(--text-2);
+      font-size: 0.9375rem;
+    }
+
+    /* ── Code Snippet ── */
+    .code-block {
+      background: #0D0D0D;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 32px;
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+
+    .code-block .kw {
+      color: #818CF8;
+    }
+
+    /* Keyword */
+    .code-block .str {
+      color: #A7F3D0;
+    }
+
+    /* String */
+    .code-block .fn {
+      color: #FCD34D;
+    }
+
+    /* Function */
+    .code-block .cmt {
+      color: #52525B;
+    }
+
+    /* Comment */
+
+    /* ── Pricing ── */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    @media (max-width: 968px) {
+      .pricing-grid {
+        grid-template-columns: 1fr;
+        max-width: 400px;
+        margin: 0 auto;
+      }
+    }
+
+    .price-card {
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 40px 32px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .price-card.pro {
+      background: var(--bg);
+      border-color: var(--text-3);
+      position: relative;
+    }
+
+    .price-tier {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .price-card.pro .price-tier {
+      color: var(--brand);
+    }
+
+    .price-amt {
+      font-size: 3rem;
+      font-weight: 700;
+      margin: 16px 0;
+      letter-spacing: -0.04em;
+    }
+
+    .price-amt span {
+      font-size: 1rem;
+      color: var(--text-3);
+      font-weight: 400;
+    }
+
+    .features-list {
+      margin: 32px 0;
+      flex: 1;
+      list-style: none;
+    }
+
+    .features-list li {
+      display: flex;
+      gap: 12px;
+      font-size: 0.9375rem;
+      color: var(--text-2);
+      margin-bottom: 16px;
+    }
+
+    .features-list li::before {
+      content: '→';
+      color: var(--text-3);
+    }
+
+    /* ── CTA Banner ── */
+    .cta-banner {
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 80px 40px;
+      text-align: center;
+      margin-block: 120px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      padding: 60px 0;
+      border-top: 1px solid var(--border);
+      color: var(--text-3);
+      font-size: 0.875rem;
+    }
+
+    .footer-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center; z-index: 999;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .modal-overlay.active { display: flex; opacity: 1; }
+    .modal {
+      background: var(--surface-1); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 40px; max-width: 480px; width: 100%;
+      box-shadow: var(--shadow-lg); transform: translateY(20px); transition: transform 0.2s;
+    }
+    .modal-overlay.active .modal { transform: translateY(0); }
+    .modal-title { font-size: 1.5rem; margin-bottom: 8px; }
+    .modal-desc { color: var(--text-2); margin-bottom: 24px; font-size: 0.9375rem; }
+    .form-input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      color: var(--text-1); padding: 12px 16px; border-radius: var(--radius-sm);
+      font-size: 0.9375rem; font-family: var(--font-sans); margin-bottom: 16px;
+    }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    .key-display {
+      background: #000; border: 1px solid var(--success); color: var(--success);
+      padding: 16px; border-radius: var(--radius-sm); font-family: var(--font-mono);
+      font-size: 0.875rem; word-break: break-all; margin-top: 16px; display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Navigation -->
+  <nav>
+    <div class="container">
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+            stroke="white" stroke-width="2" stroke-linecap="round" />
+          <path d="M12 6V12L16 16" stroke="white" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        Vector-Pulse
+      </div>
+      <div class="nav-links">
+        <a href="#how-it-works">Integration</a>
+        <a href="#engine">Engine</a>
+        <a href="#pricing">Pricing</a>
+        <button onclick="openModal()" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.8125rem; font-family: var(--font-sans);">Get API Key</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero container">
+    <div class="badge">
+      <div class="status-dot"></div> Systems Operational
+    </div>
+    <h1>Eliminate COD Fraud.<br />Automate Decisions.</h1>
+    <p>Enterprise-grade fraud detection built for D2C brands. Stop fake orders and RTO losses instantly with our
+      proprietary machine learning engine.</p>
+
+    <div class="hero-actions">
+      <a href="#pricing" class="btn btn-primary">Start Building for Free</a>
+      <a href="#how-it-works" class="btn btn-secondary">Explore the Platform</a>
+    </div>
+
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="metric-val metric-primary" id="val-savings">₹0</div>
+        <div class="metric-label">Loss Prevented</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="val-tx">0</div>
+        <div class="metric-label">Analysed</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">3</div>
+        <div class="metric-label">Threat Models</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">&lt;10ms</div>
+        <div class="metric-label">p99 Latency</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Live Feed Section -->
+  <section id="observability" style="background: var(--surface-1); border-top: 1px solid var(--border);">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Observable by Design</h2>
+        <p class="section-desc">Monitor network traffic in real-time. Granular logging of every decision and risk
+          anomaly.</p>
+      </div>
+
+      <div class="terminal-container">
+        <!-- Feed -->
+        <div class="terminal">
+          <div class="term-header">
+            <div class="term-dot"></div>
+            <div class="term-dot"></div>
+            <div class="term-dot"></div>
+            <span class="term-title">production-logs/tail -f risk_engine.log</span>
+          </div>
+          <div class="term-body" id="live-console">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- Live Stats -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div
+            style="background: var(--bg); border: 1px solid var(--border); padding: 24px; border-radius: var(--radius-md);">
+            <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Network Activity</div>
+            <div style="font-size: 2rem; font-weight: 700; color: var(--text-1); margin-top: 8px;" id="stat-sybil">0
+            </div>
+          </div>
+          <div
+            style="background: var(--bg); border: 1px solid var(--border); padding: 24px; border-radius: var(--radius-md);">
+            <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Anomalies Detected</div>
+            <div style="font-size: 2rem; font-weight: 700; color: var(--text-1); margin-top: 8px;" id="stat-anomaly">0
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Integration / Developer Snippet -->
+  <section id="how-it-works">
+    <div class="container">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center;">
+
+        <div>
+          <h2 class="section-title">Drop-in Integration</h2>
+          <p class="section-desc" style="margin-bottom: 32px;">A single, stateless HTTP request before payment gateway
+            initialization. We return a normalized binary decision.</p>
+
+          <ul class="features-list" style="margin-bottom: 40px;">
+            <li><strong style="color:var(--text-1)">Actionable Output:</strong> Returns either <code>ALLOW_COD</code> or
+              <code>FORCE_PREPAID</code>.
+            </li>
+            <li><strong style="color:var(--text-1)">Zero Latency Tax:</strong> High-performance core ensures your
+              conversion rates
+              are never impacted by timeouts.</li>
+            <li><strong style="color:var(--text-1)">Secure by Default:</strong> Edge-terminated TLS with SHA-256 hashed
+              API keys.</li>
+          </ul>
+
+          <button onclick="openModal()" class="btn btn-secondary">Get API Credentials</button>
+        </div>
+
+        <div class="code-block">
+          <div class="cmt"># POST /v1/risk-check</div>
+          <span class="kw">import</span> requests
+
+          res = requests.<span class="fn">post</span>(
+          <span class="str">"https://api.vector-pulse.com/v1/risk-check"</span>,
+          headers={<span class="str">"X-API-Key"</span>: <span class="str">"vp_sk_live_..."</span>},
+          json={
+          <span class="str">"uid"</span>: <span class="str">"usr_9882a"</span>,
+          <span class="str">"amt"</span>: 18500.0,
+          <span class="str">"addr"</span>: <span class="str">"Koramangala, BLR"</span>,
+          <span class="str">"pin"</span>: <span class="str">"560034"</span>
+          }
+          )
+
+          <span class="cmt"># Response Example</span>
+          <span class="cmt"># {</span>
+          <span class="cmt"># "decision": "FORCE_PREPAID",</span>
+          <span class="cmt"># "risk_factors": ["HIGH_DEVIATION", "NETWORK_RISK"],</span>
+          <span class="cmt"># "trust_score": 12.4,</span>
+          <span class="cmt"># "latency_ms": "4.12ms"</span>
+          <span class="cmt"># }</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture / Features -->
+  <section id="engine" style="background: var(--surface-1);">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Architected for Scale</h2>
+        <p class="section-desc">Vector-Pulse uses a proprietary compute architecture designed for high-throughput,
+          low-latency transaction processing.</p>
+      </div>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h3>Behavioral Modeling</h3>
+          <p>Evaluates current checkout properties against historical user behaviour. Meaningful deviations
+            automatically trigger prepaid enforcement.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Network Clustering</h3>
+          <p>Continuous network analysis mapping disparate order events to normalize identity vectors and catch
+            coordinated fraud patterns.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Traffic Heuristics</h3>
+          <p>Maintains sliding time-windows across global networks, instantly neutralizing automated
+            attacks via rate-based dynamic triggers.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="pricing">
+    <div class="container">
+      <div class="section-header text-center" style="text-align: center;">
+        <h2 class="section-title">Transparent Infrastructure Pricing</h2>
+        <p class="section-desc" style="margin-inline: auto;">Predictable overhead. No hidden fees. Start for free on
+          staging environments.</p>
+      </div>
+
+      <div class="pricing-grid">
+
+        <!-- Tier 0 -->
+        <div class="price-card">
+          <div class="price-tier">Free</div>
+          <div class="price-amt">₹0 <span>/ mo</span></div>
+          <p style="color:var(--text-3); font-size:0.875rem;">1K API calls per month</p>
+
+          <ul class="features-list">
+            <li>Basic ML pipelines</li>
+            <li>No SLA</li>
+            <li>Community support</li>
+          </ul>
+
+          <button onclick="openModal()" class="btn btn-secondary" style="width:100%">Generate Test Key</button>
+        </div>
+
+        <!-- Tier 1 -->
+        <div class="price-card">
+          <div class="price-tier">Starter</div>
+          <div class="price-amt">₹999 <span>/ mo</span></div>
+          <p style="color:var(--text-3); font-size:0.875rem;">10K API calls per month</p>
+
+          <ul class="features-list">
+            <li>Standard ML pipelines</li>
+            <li>Shared SLA limits</li>
+            <li>Email support</li>
+          </ul>
+
+          <a href="https://rzp.io/l/vectorpulse-starter" class="btn btn-secondary"
+            style="width:100%">Subscribe via Razorpay</a>
+        </div>
+
+        <!-- Tier 2 -->
+        <div class="price-card pro">
+          <div class="price-tier">Growth</div>
+          <div class="price-amt">₹2,999 <span>/ mo</span></div>
+          <p style="color:var(--text-3); font-size:0.875rem;">100K API calls per month</p>
+
+          <ul class="features-list">
+            <li>Full detection engine</li>
+            <li>Reputation feedback API</li>
+            <li>Uptime SLA backing</li>
+            <li>Priority email support</li>
+          </ul>
+
+          <a href="https://rzp.io/l/vectorpulse-growth" class="btn btn-primary" style="width:100%">Subscribe via
+            Razorpay</a>
+        </div>
+
+        <!-- Tier 3 -->
+        <div class="price-card">
+          <div class="price-tier">Scale</div>
+          <div class="price-amt">₹9,999 <span>/ mo</span></div>
+          <p style="color:var(--text-3); font-size:0.875rem;">1M API calls per month</p>
+
+          <ul class="features-list">
+            <li>Dedicated instances</li>
+            <li>Custom rule engine weights</li>
+            <li>Dedicated account manager</li>
+            <li>24x7 phone support</li>
+          </ul>
+
+          <a href="https://rzp.io/l/vectorpulse-scale" class="btn btn-secondary"
+            style="width:100%">Subscribe via Razorpay</a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Bottom CTA -->
+  <div class="container">
+    <div class="cta-banner">
+      <h2 class="section-title">Stop subsidizing fraud.</h2>
+      <p class="section-desc" style="margin: 0 auto 40px;">Join top engineering teams protecting their supply chain
+        margins with Vector-Pulse.</p>
+      <a href="#how-it-works" class="btn btn-primary">Review Documentation</a>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container footer-content">
+      <div class="logo" style="font-size: 1rem; color: var(--text-2);">
+        Vector-Pulse © 2026
+      </div>
+      <div style="display:flex; gap: 24px;">
+        <a href="#how-it-works">API Reference</a>
+        <a href="mailto:your@email.com">Security</a>
+        <a href="mailto:your@email.com">Terms of Service</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="keyModal" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <h3 class="modal-title">Get your Sandbox Key</h3>
+      <p class="modal-desc">Enter your work email to instantly generate a free API key with 1,000 monthly executions.</p>
+      
+      <div id="modal-form">
+        <input type="email" id="emailInput" class="form-input" placeholder="you@company.com" required />
+        <button onclick="requestKey()" class="btn btn-primary" style="width:100%" id="requestBtn">Generate Key</button>
+      </div>
+      
+      <div id="modal-error" style="color: var(--danger); font-size: 0.875rem; margin-top: 12px; display: none;"></div>
+      
+      <div class="key-display" id="keyDisplay"></div>
+      <button onclick="closeModal()" class="btn btn-secondary" style="width:100%; margin-top: 16px; display: none;" id="closeBtn">Close</button>
+    </div>
+  </div>
+
+  <script>
+    // Modal Logic
+    const modal = document.getElementById('keyModal');
+    function openModal() { modal.classList.add('active'); }
+    function closeModal() { 
+      modal.classList.remove('active'); 
+      setTimeout(() => {
+        document.getElementById('modal-form').style.display = 'block';
+        document.getElementById('keyDisplay').style.display = 'none';
+        document.getElementById('closeBtn').style.display = 'none';
+        document.getElementById('modal-error').style.display = 'none';
+        document.getElementById('emailInput').value = '';
+        document.getElementById('requestBtn').textContent = 'Generate Key';
+        document.getElementById('requestBtn').disabled = false;
+      }, 200);
+    }
+
+    async function requestKey() {
+      const email = document.getElementById('emailInput').value;
+      const btn = document.getElementById('requestBtn');
+      const err = document.getElementById('modal-error');
+      
+      if(!email || !email.includes('@')) { err.textContent = 'Please enter a valid email'; err.style.display = 'block'; return; }
+      
+      btn.textContent = 'Generating...'; btn.disabled = true; err.style.display = 'none';
+      
+      try {
+        const res = await fetch('/v1/public/request-free-key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        
+        if(!res.ok) throw new Error(data.detail || 'Failed to generate key');
+        
+        document.getElementById('modal-form').style.display = 'none';
+        const kd = document.getElementById('keyDisplay');
+        kd.innerHTML = `<div><strong>X-API-Key:</strong></div><div style="margin-top:8px">${data.api_key}</div>`;
+        kd.style.display = 'block';
+        document.getElementById('closeBtn').style.display = 'block';
+        
+      } catch(e) {
+        err.textContent = e.message;
+        err.style.display = 'block';
+        btn.textContent = 'Generate Key'; btn.disabled = false;
+      }
+    }
+
+    // System clock for logs
+    const formatTime = () => new Date().toISOString().substring(11, 23) + 'Z';
+
+    // Fake log generator
+    const logEl = document.getElementById('live-console');
+    const uids = ['usr_a3f', 'usr_8b2', 'bot_19c', 'bot_66f', 'usr_99x'];
+    const cities = ['Bengaluru', 'Mumbai', 'Delhi', 'Pune', 'Kochi'];
+
+    let sybilCount = 14;
+    let anomalyCount = 28;
+
+    function appendLog() {
+      const isBlock = Math.random() > 0.7;
+      const type = isBlock ? 'block' : 'allow';
+      const label = isBlock ? 'REJECT' : 'PASS ';
+      const uid = uids[Math.floor(Math.random() * uids.length)];
+
+      let reason = `${Math.floor(Math.random() * 20000)} INR • ${cities[Math.floor(Math.random() * cities.length)]}`;
+      if (isBlock) {
+        if (Math.random() > 0.5) {
+          reason = `[WARN] Anomaly Detected (amount: ${Math.floor(Math.random() * 30000)})`;
+          anomalyCount++;
+          document.getElementById('stat-anomaly').textContent = anomalyCount;
+        } else {
+          reason = `[ERR] Network flag: Cluster risk confirmed`;
+          sybilCount++;
+          document.getElementById('stat-sybil').textContent = sybilCount;
+        }
+      }
+
+      const row = document.createElement('div');
+      row.className = 'log-row';
+      row.innerHTML = `
+        <span class="log-timestamp">${formatTime()}</span>
+        <span class="log-tag tag-${type}">${label}</span>
+        <div class="log-detail">
+          <span>${uid}</span>
+          <span class="log-reason">${reason}</span>
+        </div>
+      `;
+
+      logEl.appendChild(row);
+      if (logEl.childElementCount > 12) logEl.removeChild(logEl.firstChild);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // Initial logs
+    for (let i = 0; i < 8; i++) appendLog();
+    setInterval(appendLog, 1800);
+
+    // Number animator for header
+    function animateValue(obj, start, end, duration) {
+      let startTimestamp = null;
+      const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 4); // Quartic ease out
+        const val = Math.floor(progress * (end - start) + start);
+        obj.innerHTML = (obj.id === 'val-savings' ? '₹' : '') + val.toLocaleString('en-IN');
+        if (progress < 1) window.requestAnimationFrame(step);
+      };
+      window.requestAnimationFrame(step);
+    }
+
+    let animated = false;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !animated) {
+        animated = true;
+        animateValue(document.getElementById('val-savings'), 0, 142800, 2500);
+        animateValue(document.getElementById('val-tx'), 0, 28410, 2500);
+      }
+    });
+    observer.observe(document.querySelector('.metrics'));
+  </script>
+</body>
+
+</html>

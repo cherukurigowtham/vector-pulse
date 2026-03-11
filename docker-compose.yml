@@ -1,0 +1,21 @@
+services:
+  redis_store:
+    image: redis:alpine
+    networks:
+      - pulse_net
+
+  rto_shield_api:
+    build: .
+    command: uvicorn api_gateway:app --host 0.0.0.0 --port 8000
+    depends_on:
+      - redis_store
+    environment:
+      - REDIS_HOST=redis_store
+    ports:
+      - "8000:8000"
+    networks:
+      - pulse_net
+
+networks:
+  pulse_net:
+    driver: bridge

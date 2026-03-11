@@ -1,0 +1,31 @@
+# Use Python 3.10 slim as the base
+FROM python:3.10-slim
+
+# Install system dependencies for Rust and C-compilation
+RUN apt-get update && apt-get install -y \
+    curl build-essential gcc make \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+# Add Rust to the path
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /app
+
+# Copy Rust package files first (for layer caching)
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY pyproject.toml ./
+
+# Copy all Python source files
+COPY *.py ./
+
+# Install Python dependencies and build the Rust extension as a wheel
+RUN pip install --no-cache-dir maturin redis fastapi uvicorn
+RUN maturin build --release --out dist
+RUN pip install dist/*.whl
+
+# Expose the API port
+EXPOSE 8000
+
+# Start the unified API gateway with multiple workers for concurrency
+CMD ["uvicorn", "api_gateway:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

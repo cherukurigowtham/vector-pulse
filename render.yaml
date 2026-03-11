@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: vector-pulse-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: REDIS_HOST
+        sync: false          # Set this to your Upstash Redis host after deploy
+      - key: REDIS_PORT
+        value: 6379
+      - key: REDIS_PASSWORD
+        sync: false          # Set this to your Upstash Redis password
+      - key: REDIS_SSL
+        value: "true"        # Upstash requires SSL
+      - key: ADMIN_SECRET_KEY
+        generateValue: true  # Render auto-generates a secure random value
