@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Security, Depends, Request
+from fastapi import FastAPI, HTTPException, Security, Depends, Request, Header
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -157,6 +157,10 @@ def _get_trust_score(uid: str) -> float:
 async def root():
     return FileResponse("landing/index.html")
 
+@app.get("/admin", include_in_schema=False)
+async def admin_portal():
+    return FileResponse("landing/admin.html")
+
 
 @app.get("/health")
 async def health():
@@ -168,6 +172,35 @@ async def health():
 
 
 # ── Admin: Issue API Keys  ─────────────────────────────────────────────────────
+def require_admin(x_admin_key: str = Header(None)):
+    if x_admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Invalid admin key")
+    return x_admin_key
+
+@app.get("/v1/admin/users", summary="List all registered API keys and their usage")
+async def get_all_users(_: str = Depends(require_admin)):
+    keys = r.smembers("admin:all_keys")
+    users = []
+    
+    current_month = time.strftime('%Y-%m')
+    for key_hash in keys:
+        key_data = r.hgetall(f"apikey:{key_hash}")
+        if not key_data:
+            continue
+            
+        usage = int(r.get(f"usage:{key_hash}:{current_month}") or 0)
+        
+        users.append({
+            "email": key_data.get("email", "unknown"),
+            "plan": key_data.get("plan", "unknown"),
+            "created_at": key_data.get("created_at", "unknown"),
+            "usage_this_month": usage,
+            "limit": RATE_LIMITS.get(key_data.get("plan", "free"), 1_000)
+        })
+        
+    users.sort(key=lambda x: x["usage_this_month"], reverse=True)
+    return {"users": users, "total_users": len(keys)}
+
 @app.post("/v1/register", summary="Issue an API key (admin only)")
 async def register(req: RegisterRequest):
     if req.admin_key != ADMIN_KEY:
@@ -187,6 +220,7 @@ async def register(req: RegisterRequest):
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
         },
     )
+    r.sadd("admin:all_keys", key_hash)
 
     return {
         "api_key": raw_key,
@@ -215,6 +249,7 @@ async def request_free_key(req: PublicRegisterRequest, request: Request):
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
         },
     )
+    r.sadd("admin:all_keys", key_hash)
 
     return {
         "api_key": raw_key,

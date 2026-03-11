@@ -898,7 +898,7 @@
       btn.textContent = 'Generating...'; btn.disabled = true; err.style.display = 'none';
       
       try {
-        const res = await fetch('/v1/public/request-free-key', {
+        const res = await fetch('https://vector-pulse-b97i.onrender.com/v1/public/request-free-key', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email })

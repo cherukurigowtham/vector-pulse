@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vector-Pulse Admin Dashboard</title>
+  <style>
+    :root {
+      --bg-color: #000;
+      --surface-color: #111;
+      --text-main: #fff;
+      --text-muted: #888;
+      --accent: #3b82f6;
+      --border: #333;
+      --danger: #ef4444;
+    }
+    body {
+      background: var(--bg-color); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0; padding: 40px; display: flex; flex-direction: column; align-items: center;
+    }
+    .auth-container {
+      background: var(--surface-color); padding: 40px; border-radius: 8px; border: 1px solid var(--border);
+      text-align: center; max-width: 400px; width: 100%; margin-top: 100px;
+    }
+    input {
+      width: 100%; padding: 12px; margin: 16px 0; background: #000; border: 1px solid var(--border);
+      color: #fff; border-radius: 6px; font-size: 16px; box-sizing: border-box;
+    }
+    input:focus { outline: none; border-color: var(--accent); }
+    button {
+      width: 100%; padding: 12px; background: var(--text-main); color: #000; border: none;
+      border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 16px; transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.9; }
+    
+    .dashboard-container {
+      display: none; width: 100%; max-width: 1000px;
+    }
+    .header {
+      display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);
+      padding-bottom: 24px; margin-bottom: 32px;
+    }
+    .stats-row {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 40px;
+    }
+    .stat-card {
+      background: var(--surface-color); padding: 24px; border-radius: 8px; border: 1px solid var(--border);
+    }
+    .stat-val { font-size: 2rem; font-weight: bold; margin-top: 8px; }
+    
+    table { width: 100%; border-collapse: collapse; background: var(--surface-color); border-radius: 8px; overflow: hidden; }
+    th, td { padding: 16px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--text-muted); font-weight: 500; font-size: 0.875rem; text-transform: uppercase; background: #0a0a0a; }
+    .badge {
+      display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+    }
+    .badge.free { background: #222; color: #aaa; }
+    .badge.starter { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .badge.growth { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .badge.scale { background: rgba(139, 92, 246, 0.2); color: #b794f4; }
+  </style>
+</head>
+<body>
+
+  <!-- Authentication Box -->
+  <div class="auth-container" id="authBox">
+    <h2>Admin Login</h2>
+    <p style="color:var(--text-muted); font-size:14px;">Enter the ADMIN_SECRET_KEY to view metrics.</p>
+    <form onsubmit="login(event)">
+      <input type="password" id="adminKey" placeholder="Admin Secret Key" required />
+      <button type="submit" id="loginBtn">Authenticate</button>
+    </form>
+    <div id="authError" style="color:var(--danger); margin-top:16px; display:none; font-size:14px;"></div>
+  </div>
+
+  <!-- Main Dashboard -->
+  <div class="dashboard-container" id="dashBox">
+    <div class="header">
+      <h2>Vector-Pulse Admin</h2>
+      <button onclick="logout()" style="width:auto; padding:8px 16px; background:#222; color:#fff; border:1px solid #333;">Logout</button>
+    </div>
+    
+    <div class="stats-row">
+      <div class="stat-card">
+        <div style="color:var(--text-muted)">Total Authorized Users</div>
+        <div class="stat-val" id="statTotalUsers">0</div>
+      </div>
+      <div class="stat-card">
+        <div style="color:var(--text-muted)">Total API Calls (Month)</div>
+        <div class="stat-val" id="statTotalCalls">0</div>
+      </div>
+      <div class="stat-card">
+        <div style="color:var(--text-muted)">Active Paid Plans</div>
+        <div class="stat-val" id="statPaidPlans">0</div>
+      </div>
+    </div>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Email Address</th>
+          <th>Plan Plan</th>
+          <th>Usage This Month</th>
+          <th>Created At</th>
+        </tr>
+      </thead>
+      <tbody id="userTableBody">
+        <!-- Rendered via JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    let currentAdminKey = sessionStorage.getItem('vp_admin_key') || '';
+    
+    if(currentAdminKey) {
+      loadDashboard();
+    }
+    
+    function login(e) {
+      e.preventDefault();
+      currentAdminKey = document.getElementById('adminKey').value;
+      loadDashboard();
+    }
+    
+    function logout() {
+      sessionStorage.removeItem('vp_admin_key');
+      currentAdminKey = '';
+      document.getElementById('dashBox').style.display = 'none';
+      document.getElementById('authBox').style.display = 'block';
+      document.getElementById('adminKey').value = '';
+    }
+    
+    async function loadDashboard() {
+      const btn = document.getElementById('loginBtn');
+      const err = document.getElementById('authError');
+      if (btn) btn.textContent = 'Loading...';
+      
+      try {
+        const res = await fetch('https://vector-pulse-b97i.onrender.com/v1/admin/users', {
+          headers: { 'X-Admin-Key': currentAdminKey }
+        });
+        
+        if (res.status === 403 || res.status === 401) {
+          throw new Error("Invalid Admin Key");
+        }
+        
+        const data = await res.json();
+        sessionStorage.setItem('vp_admin_key', currentAdminKey);
+        
+        document.getElementById('authBox').style.display = 'none';
+        document.getElementById('dashBox').style.display = 'block';
+        err.style.display = 'none';
+        
+        // Populate stats
+        document.getElementById('statTotalUsers').textContent = data.total_users;
+        
+        let totalCalls = 0;
+        let paidPlans = 0;
+        
+        const tbody = document.getElementById('userTableBody');
+        tbody.innerHTML = '';
+        
+        if (data.users.length === 0) {
+           tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">No users registered yet.</td></tr>';
+        }
+        
+        data.users.forEach(u => {
+          totalCalls += u.usage_this_month;
+          if(u.plan !== 'free') paidPlans++;
+          
+          const limitNum = parseInt(u.limit) || 1000;
+          const pct = Math.min(100, Math.round((u.usage_this_month / limitNum) * 100));
+          const isDanger = pct >= 90;
+          
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${u.email}</strong></td>
+            <td><span class="badge ${u.plan}">${u.plan}</span></td>
+            <td>
+              <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:14px;">
+                <span>${u.usage_this_month.toLocaleString()} / ${limitNum.toLocaleString()} calls</span>
+                <span style="color:var(--text-muted)">${pct}%</span>
+              </div>
+              <div style="height:4px;width:100%;background:#222;border-radius:2px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${isDanger ? 'var(--danger)' : 'var(--text-main)'};border-radius:2px;"></div>
+              </div>
+            </td>
+            <td style="color:var(--text-muted); font-size:14px;">${u.created_at.split('T')[0]}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        
+        document.getElementById('statTotalCalls').textContent = totalCalls.toLocaleString();
+        document.getElementById('statPaidPlans').textContent = paidPlans;
+        
+      } catch(e) {
+        err.textContent = e.message;
+        err.style.display = 'block';
+        sessionStorage.removeItem('vp_admin_key');
+        document.getElementById('authBox').style.display = 'block';
+        document.getElementById('dashBox').style.display = 'none';
+      } finally {
+        if (btn) btn.textContent = 'Authenticate';
+      }
+    }
+  </script>
+</body>
+</html>

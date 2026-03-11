@@ -2,8 +2,12 @@ import requests
 import time
 import random
 
-# Use localhost since this script runs outside the Docker network on your Mac
+# Use the live production URL
 API_URL = "http://localhost:8000/v1/risk-check"
+
+# The free tier API key we just generated
+API_KEY = "vp_Esy2gTFjBdkHdC7kt-z6VS0TiQW1q03dX3Ni4-SKYus"
+HEADERS = {"X-API-Key": API_KEY}
 
 def simulate_orders():
     # Diversified scenarios to test different parts of your Rust/Python logic
@@ -24,8 +28,8 @@ def simulate_orders():
     while True:
         scenario = random.choice(scenarios)
         try:
-            # CRITICAL FIX: Use 'json=' instead of 'params='
-            response = requests.post(API_URL, json=scenario)
+            # Hit the live Render API
+            response = requests.post(API_URL, json=scenario, headers=HEADERS)
             
             if response.status_code == 200:
                 data = response.json()
