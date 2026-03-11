@@ -588,7 +588,9 @@
         <a href="#how-it-works">Integration</a>
         <a href="#engine">Engine</a>
         <a href="#pricing">Pricing</a>
-        <button onclick="openModal()" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.8125rem; font-family: var(--font-sans);">Get API Key</button>
+        <div id="auth-nav-container">
+          <button onclick="openModal()" id="navAuthBtn" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.8125rem; font-family: var(--font-sans);">Get API Key</button>
+        </div>
       </div>
     </div>
   </nav>
@@ -856,18 +858,28 @@
   <!-- Modal -->
   <div class="modal-overlay" id="keyModal" onclick="if(event.target===this) closeModal()">
     <div class="modal">
-      <h3 class="modal-title">Get your Sandbox Key</h3>
-      <p class="modal-desc">Enter your work email to instantly generate a free API key with 1,000 monthly executions.</p>
-      
-      <div id="modal-form">
-        <input type="email" id="emailInput" class="form-input" placeholder="you@company.com" required />
-        <button onclick="requestKey()" class="btn btn-primary" style="width:100%" id="requestBtn">Generate Key</button>
+      <div id="authFlow">
+        <div style="display:flex; border-bottom:1px solid var(--border); margin-bottom:24px;">
+          <button id="tabSignup" onclick="switchTab('signup')" style="flex:1; padding:12px; background:none; border:none; color:var(--text-1); border-bottom:2px solid var(--brand); cursor:pointer; font-size:16px;">Sign Up</button>
+          <button id="tabLogin" onclick="switchTab('login')" style="flex:1; padding:12px; background:none; border:none; color:var(--text-3); border-bottom:2px solid transparent; cursor:pointer; font-size:16px;">Log In</button>
+        </div>
+        
+        <p class="modal-desc" id="authDesc">Create an account to instantly generate a sandbox API key.</p>
+        
+        <form id="authForm" onsubmit="handleAuth(event)">
+          <input type="email" id="emailInput" class="form-input" placeholder="you@company.com" required />
+          <input type="password" id="passwordInput" class="form-input" placeholder="Password" required minlength="6"/>
+          <button type="submit" class="btn btn-primary" style="width:100%" id="authSubmitBtn">Create Account</button>
+        </form>
+        <div id="modal-error" style="color: var(--danger); font-size: 0.875rem; margin-top: 12px; display: none;"></div>
       </div>
       
-      <div id="modal-error" style="color: var(--danger); font-size: 0.875rem; margin-top: 12px; display: none;"></div>
-      
-      <div class="key-display" id="keyDisplay"></div>
-      <button onclick="closeModal()" class="btn btn-secondary" style="width:100%; margin-top: 16px; display: none;" id="closeBtn">Close</button>
+      <div id="dashboardFlow" style="display:none; text-align:center;">
+        <h3 class="modal-title">Your API Key</h3>
+        <p class="modal-desc">Use this key in your Authorization headers.</p>
+        <div class="key-display" id="keyDisplay" style="display:block; margin: 24px 0;"></div>
+        <button onclick="handleLogout()" class="btn btn-secondary" style="width:100%; border:1px solid var(--danger); color:var(--danger)">Log Out</button>
+      </div>
     </div>
   </div>
 
@@ -888,37 +900,89 @@
       }, 200);
     }
 
-    async function requestKey() {
+    let currentMode = 'signup';
+    
+    function switchTab(mode) {
+      currentMode = mode;
+      document.getElementById('modal-error').style.display = 'none';
+      if (mode === 'signup') {
+        document.getElementById('tabSignup').style.color = 'var(--text-1)';
+        document.getElementById('tabSignup').style.borderBottomColor = 'var(--brand)';
+        document.getElementById('tabLogin').style.color = 'var(--text-3)';
+        document.getElementById('tabLogin').style.borderBottomColor = 'transparent';
+        document.getElementById('authDesc').textContent = 'Create an account to instantly generate a sandbox API key.';
+        document.getElementById('authSubmitBtn').textContent = 'Create Account';
+      } else {
+        document.getElementById('tabLogin').style.color = 'var(--text-1)';
+        document.getElementById('tabLogin').style.borderBottomColor = 'var(--brand)';
+        document.getElementById('tabSignup').style.color = 'var(--text-3)';
+        document.getElementById('tabSignup').style.borderBottomColor = 'transparent';
+        document.getElementById('authDesc').textContent = 'Log back in to view your API key.';
+        document.getElementById('authSubmitBtn').textContent = 'Log In';
+      }
+    }
+
+    async function handleAuth(e) {
+      e.preventDefault();
       const email = document.getElementById('emailInput').value;
-      const btn = document.getElementById('requestBtn');
+      const password = document.getElementById('passwordInput').value;
+      const btn = document.getElementById('authSubmitBtn');
       const err = document.getElementById('modal-error');
       
-      if(!email || !email.includes('@')) { err.textContent = 'Please enter a valid email'; err.style.display = 'block'; return; }
-      
-      btn.textContent = 'Generating...'; btn.disabled = true; err.style.display = 'none';
+      btn.textContent = 'Processing...'; btn.disabled = true; err.style.display = 'none';
       
       try {
-        const res = await fetch('https://vector-pulse-b97i.onrender.com/v1/public/request-free-key', {
+        const endpoint = currentMode === 'signup' ? '/auth/signup' : '/auth/login';
+        
+        // Ensure credentials are included to process cookies
+        const res = await fetch(`http://localhost:8000/v1${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
+          credentials: 'omit', // Vercel handles API differently, omit cookies during initial test
+          body: JSON.stringify({ email, password })
         });
+        
         const data = await res.json();
+        if(!res.ok) throw new Error(data.detail || 'Authentication failed');
         
-        if(!res.ok) throw new Error(data.detail || 'Failed to generate key');
-        
-        document.getElementById('modal-form').style.display = 'none';
-        const kd = document.getElementById('keyDisplay');
-        kd.innerHTML = `<div><strong>X-API-Key:</strong></div><div style="margin-top:8px">${data.api_key}</div>`;
-        kd.style.display = 'block';
-        document.getElementById('closeBtn').style.display = 'block';
+        // Success! Reload session state
+        await checkSession();
         
       } catch(e) {
         err.textContent = e.message;
         err.style.display = 'block';
-        btn.textContent = 'Generate Key'; btn.disabled = false;
+        btn.textContent = currentMode === 'signup' ? 'Create Account' : 'Log In'; 
+        btn.disabled = false;
       }
     }
+    
+    async function handleLogout() {
+      await fetch('http://localhost:8000/v1/auth/logout', { method: 'POST', credentials: 'omit' });
+      document.getElementById('authFlow').style.display = 'block';
+      document.getElementById('dashboardFlow').style.display = 'none';
+      document.getElementById('emailInput').value = '';
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('navAuthBtn').textContent = 'Log In / Sign Up';
+      switchTab('login');
+    }
+    
+    async function checkSession() {
+      try {
+        const res = await fetch('http://localhost:8000/v1/auth/me', { credentials: 'omit' });
+        if(res.ok) {
+          const data = await res.json();
+          document.getElementById('authFlow').style.display = 'none';
+          document.getElementById('dashboardFlow').style.display = 'block';
+          document.getElementById('keyDisplay').textContent = data.api_key;
+          document.getElementById('navAuthBtn').textContent = 'My API Key';
+        }
+      } catch(e) {
+        console.log("No active session");
+      }
+    }
+    
+    // Check session on load
+    checkSession();
 
     // System clock for logs
     const formatTime = () => new Date().toISOString().substring(11, 23) + 'Z';

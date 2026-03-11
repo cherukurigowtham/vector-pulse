@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Security, Depends, Request, Header
+from fastapi import FastAPI, HTTPException, Security, Depends, Request, Header, Response
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -114,6 +114,10 @@ class RegisterRequest(BaseModel):
 
 class PublicRegisterRequest(BaseModel):
     email: str
+
+class AuthRequest(BaseModel):
+    email: str
+    password: str
 
 
 # ── Fraud Detection Helpers ────────────────────────────────────────────────────
@@ -258,6 +262,94 @@ async def request_free_key(req: PublicRegisterRequest, request: Request):
         "note": "Store this test key safely. It will not be shown again."
     }
 
+# ── User Auth (B2C) ────────────────────────────────────────────────────────────
+def _hash_password(password: str, salt: str) -> str:
+    key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000)
+    return key.hex()
+
+@app.post("/v1/auth/signup", summary="Create a new user account")
+async def auth_signup(req: AuthRequest, response: Response, request: Request):
+    if r.hexists(f"user:{req.email}", "pwd_hash"):
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    salt = secrets.token_hex(16)
+    pwd_hash = _hash_password(req.password, salt)
+    
+    # Generate API key
+    raw_key = f"vp_live_{secrets.token_urlsafe(32)}"
+    key_hash = _hash_key(raw_key)
+
+    # Store User
+    r.hset(f"user:{req.email}", mapping={
+        "pwd_hash": pwd_hash,
+        "salt": salt,
+        "api_key": raw_key
+    })
+
+    # Store API Key Profile
+    r.hset(f"apikey:{key_hash}", mapping={
+        "email": req.email,
+        "plan": "free",
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    })
+    r.sadd("admin:all_keys", key_hash)
+
+    # Create Session Cookie
+    session_id = secrets.token_urlsafe(64)
+    r.setex(f"session:{session_id}", 86400 * 30, req.email) # 30 days
+    
+    # Secure HTTPOnly Cookie
+    is_https = "https" in str(request.url)
+    response.set_cookie(key="vp_session", value=session_id, httponly=True, secure=is_https, samesite="lax", max_age=86400*30)
+    
+    return {"message": "Account created successfully"}
+
+@app.post("/v1/auth/login", summary="Log in to an existing account")
+async def auth_login(req: AuthRequest, response: Response, request: Request):
+    user_data = r.hgetall(f"user:{req.email}")
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+    pwd_hash = _hash_password(req.password, user_data["salt"])
+    if pwd_hash != user_data["pwd_hash"]:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+    # Create Session Cookie
+    session_id = secrets.token_urlsafe(64)
+    r.setex(f"session:{session_id}", 86400 * 30, req.email)
+    
+    is_https = "https" in str(request.url)
+    response.set_cookie(key="vp_session", value=session_id, httponly=True, secure=is_https, samesite="lax", max_age=86400*30)
+    
+    return {"message": "Logged in successfully"}
+
+@app.post("/v1/auth/logout", summary="End the current session")
+async def auth_logout(request: Request, response: Response):
+    session_id = request.cookies.get("vp_session")
+    if session_id:
+        r.delete(f"session:{session_id}")
+    response.delete_cookie("vp_session")
+    return {"message": "Logged out successfully"}
+
+@app.get("/v1/auth/me", summary="Get the current logged in user's profile and API key")
+async def auth_me(request: Request):
+    session_id = request.cookies.get("vp_session")
+    if not session_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+        
+    email = r.get(f"session:{session_id}")
+    if not email:
+        raise HTTPException(status_code=401, detail="Session expired")
+        
+    user_data = r.hgetall(f"user:{email}")
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # We never return passwords or salts. Just the key and email.
+    return {
+        "email": email,
+        "api_key": user_data.get("api_key")
+    }
 
 # ── Core: Risk Check ───────────────────────────────────────────────────────────
 @app.post("/v1/risk-check", summary="Evaluate an order for fraud risk")
