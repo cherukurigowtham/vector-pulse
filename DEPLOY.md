@@ -47,16 +47,14 @@ git push -u origin main
 
 ---
 
-## Step 4 — Deploy Landing Page on Vercel (Free)
+## Step 4 — Get Paid! (Razorpay Setup)
 
-1. Go to **[vercel.com](https://vercel.com)** → Sign up with GitHub
-2. Click **Add New Project** → Import your `vector-pulse` repo
-3. Vercel reads `vercel.json` automatically — no configuration needed
-4. Click **Deploy**. Done in ~30 seconds.
-5. **Update the landing page** — open `landing/index.html` and replace:
-   - `https://your-api.onrender.com` → your real Render URL
-   - `your@email.com` → your real email address
-   - `https://rzp.io/l/vectorpulse-growth` → your Razorpay payment link (see Step 6)
+1. Go to **[razorpay.com](https://razorpay.com)** → Create account (free, 2% fee per transaction)
+2. Dashboard → **Payment Links** → **Create Link**
+3. Set amount to ₹2,999, title "Vector-Pulse Growth Plan"
+4. Copy the link and paste it into `landing/index.html` → `href` on the Growth plan button
+5. Change `your@email.com` instances to your real email in `landing/index.html`.
+6. Push the updated `index.html` to GitHub for Render to auto-deploy it!
 
 ---
 
@@ -103,9 +101,8 @@ curl -X POST https://vector-pulse-api.onrender.com/v1/risk-check \
 
 ## Quick Reference
 
-| Service | URL | Cost |
-|---------|-----|------|
-| API | `https://vector-pulse-api.onrender.com` | ₹0 |
-| Landing Page | `https://vector-pulse.vercel.app` | ₹0 |
-| Redis | Upstash free tier | ₹0 |
-| Payments | Razorpay (2% per txn) | ₹0 upfront |
+| Service | Cost |
+|---------|------|
+| API Backend & UI (Render) | ₹0 |
+| Cache & Feature Store (Upstash) | ₹0 |
+| Payments (Razorpay) | ₹0 upfront (2% per txn) |
