@@ -10,6 +10,7 @@ import time
 import logging
 import secrets
 import hashlib
+import httpx
 
 # ── Logging setup ──────────────────────────────────────────────────────────────
 import sys
@@ -83,6 +84,28 @@ def _hash_key(key: str) -> str:
     return hashlib.sha256(key.encode()).hexdigest()
 
 
+async def sliding_window_rate_limit(key_hash: str, limit: int) -> bool:
+    """
+    Implements a 1-minute sliding window rate limiter.
+    """
+    now = time.time()
+    window_start = now - 60
+    limit_key = f"rl:window:{key_hash}"
+    
+    try:
+        async with r.pipeline() as pipe:
+            pipe.zadd(limit_key, {str(now): now})
+            pipe.zremrangebyscore(limit_key, 0, window_start)
+            pipe.zcard(limit_key)
+            pipe.expire(limit_key, 120)
+            res = await pipe.execute()
+        
+        current_usage = res[2]
+        return current_usage <= (limit / 1000) # Burst protection logic (e.g. 0.1% per minute)
+    except Exception as e:
+        logging.error(f"Rate Limiter Failed: {e}")
+        return True # Default open on failure
+
 async def require_api_key(api_key: str = Security(api_key_header)):
     if not api_key:
         raise HTTPException(status_code=401, detail="Missing X-API-Key header")
@@ -94,7 +117,7 @@ async def require_api_key(api_key: str = Security(api_key_header)):
         if not key_data:
             raise HTTPException(status_code=403, detail="Invalid API key")
 
-        # Rate limiting: rolling monthly counter
+        # 1. Monthly Usage Tracking
         month_key = f"usage:{key_hash}:{time.strftime('%Y-%m')}"
         usage_val = await r.get(month_key)
         usage = int(usage_val or 0)
@@ -104,21 +127,22 @@ async def require_api_key(api_key: str = Security(api_key_header)):
         if usage >= limit:
             raise HTTPException(
                 status_code=429,
-                detail=f"Monthly limit of {limit:,} calls reached for {plan} plan. Upgrade at vectorpulse.vercel.app",
+                detail=f"Monthly limit of {limit:,} calls reached for {plan} plan.",
             )
+
+        # 2. Sliding Window Burst Protection
+        if not await sliding_window_rate_limit(key_hash, limit):
+             raise HTTPException(status_code=429, detail="Too many requests in a short period (Burst Limit Reached)")
 
         async with r.pipeline() as pipe:
             pipe.incr(month_key)
-            pipe.expire(month_key, 60 * 60 * 24 * 35)  # 35 days TTL
+            pipe.expire(month_key, 60 * 60 * 24 * 35)
             await pipe.execute()
             
         return key_data
     except Exception as e:
         if isinstance(e, HTTPException): raise
         logging.error(f"Redis Auth Error: {e}")
-        # In case of DB failure, we might want to fail-closed or fail-open? 
-        # For an API gateway, failing closed (403/500) is often safer, 
-        # but for sub-second fraud checks, we might want a fallback.
         raise HTTPException(status_code=500, detail="Identity service temporarily unavailable")
 
 
@@ -128,6 +152,7 @@ class Order(BaseModel):
     amt: float
     addr: str
     pin: str
+    ip: str = "127.0.0.1" # Default if not provided
 
 
 class RegisterRequest(BaseModel):
@@ -196,6 +221,35 @@ async def _check_price_anomaly(uid: str, amount: float) -> tuple[bool, float, fl
     except Exception as e:
         logging.error(f"Price Anomaly Check Failed: {e}")
         return False, 0.0, 0.0
+
+async def _check_ip_intelligence(ip: str) -> bool:
+    """
+    Detects if an IP is a proxy, VPN, or from a data center.
+    Uses a mock/cached approach for 127.0.0.1, real lookup otherwise.
+    """
+    if ip == "127.0.0.1": return False
+    
+    try:
+        # Check cache first to save API credits and latency
+        cache_key = f"ipint:{ip}"
+        cached = await r.get(cache_key)
+        if cached is not None:
+            return cached == "1"
+
+        # Real lookup (using ip-api.com for demonstration)
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"http://ip-api.com/json/{ip}?fields=proxy,hosting", timeout=1.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                is_proxy = data.get("proxy", False) or data.get("hosting", False)
+                
+                # Cache for 24 hours
+                await r.setex(cache_key, 86400, "1" if is_proxy else "0")
+                return is_proxy
+        return False
+    except Exception as e:
+        logging.error(f"IP Intelligence Lookup Failed for {ip}: {e}")
+        return False
 
 async def _get_trust_score(uid: str) -> float:
     try:
@@ -418,7 +472,7 @@ async def auth_me(request: Request):
 @app.post("/v1/risk-check", summary="Evaluate an order for fraud risk")
 async def check_order(order: Order, key_data: dict = Depends(require_api_key)):
     start_time = time.perf_counter()
-    uid, amount, address = order.uid, order.amt, order.addr
+    uid, amount, address, client_ip = order.uid, order.amt, order.addr, order.ip
     reasons = []
 
     # Concurrent checks using pipelining and async execution
@@ -429,35 +483,60 @@ async def check_order(order: Order, key_data: dict = Depends(require_api_key)):
     sybil_task = _check_sybil(uid, address)
     price_task = _check_price_anomaly(uid, amount)
     trust_task = _get_trust_score(uid)
+    ip_task = _check_ip_intelligence(client_ip)
     
-    results = await asyncio.gather(velocity_task, sybil_task, price_task, trust_task)
+    results = await asyncio.gather(velocity_task, sybil_task, price_task, trust_task, ip_task)
     
-    is_velocity_flag, is_sybil_flag, (is_price_anomaly, avg, std_dev), trust_score = results
+    is_velocity_flag, is_sybil_flag, (is_price_anomaly, avg, std_dev), trust_score, is_vpn_flag = results
 
-    if is_velocity_flag: 
-        reasons.append("HIGH_VELOCITY")
-    if is_sybil_flag: 
-        reasons.append("ADDRESS_SYBIL_DETECTED")
-    if is_price_anomaly: 
-        reasons.append("HIGH_DEVIATION")
-        
-    if trust_score < 30.0 and trust_score != 50.0:
-        reasons.append("LOW_TRUST_SCORE")
+    # 2. Advanced Risk Scoring (Rust)
+    risk_score = vector_pulse.evaluate_weighted_risk(
+        is_velocity_flag,
+        is_sybil_flag,
+        is_price_anomaly,
+        trust_score,
+        is_vpn_flag
+    )
 
-    is_risky = len(reasons) > 0
+    if is_velocity_flag: reasons.append("HIGH_VELOCITY")
+    if is_sybil_flag:    reasons.append("ADDRESS_SYBIL_DETECTED")
+    if is_price_anomaly: reasons.append("HIGH_DEVIATION")
+    if is_vpn_flag:      reasons.append("ANONYMOUS_IP_DETECTED")
+    if trust_score < 30.0 and trust_score != 50.0: reasons.append("LOW_TRUST_SCORE")
+
+    # Decision threshold logic
+    is_risky = risk_score > 40.0
     action = "FORCE_PREPAID" if is_risky else "ALLOW_COD"
+    risk_id = secrets.token_hex(8)
 
-    # 2. Update Stats (Fire and Forget for latency optimization)
+    # 3. Update Stats (Fire and Forget)
     try:
+        import json
+        context = {
+            "uid": uid,
+            "score": risk_score,
+            "flags": reasons,
+            "metrics": {
+                "velocity": is_velocity_flag,
+                "sybil": is_sybil_flag,
+                "price": is_price_anomaly,
+                "trust": trust_score,
+                "vpn": is_vpn_flag
+            },
+            "timestamp": time.time()
+        }
+        
         async with r.pipeline() as pipe:
+            pipe.setex(f"explain:{risk_id}", 86400 * 3, json.dumps(context)) # 3 day retention
             if is_risky:
                 pipe.incrby("total_savings_inr", 70)
-                pipe.lpush("recent_blocks", f"{uid}: {', '.join(reasons)}")
+                pipe.lpush("recent_blocks", f"{uid}: {', '.join(reasons)} (Score: {risk_score:.0f}) [ID: {risk_id}]")
                 pipe.ltrim("recent_blocks", 0, 49)
             
             if is_velocity_flag: pipe.incr("stat:velocity")
             if is_sybil_flag: pipe.incr("stat:sybil")
             if is_price_anomaly: pipe.incr("stat:price")
+            if is_vpn_flag: pipe.incr("stat:vpn")
             
             pipe.incr(f"rep:{uid}:total")
             await pipe.execute()
@@ -467,10 +546,10 @@ async def check_order(order: Order, key_data: dict = Depends(require_api_key)):
     latency = (time.perf_counter() - start_time) * 1000
     return {
         "uid": uid,
+        "risk_id": risk_id,
         "decision": action,
+        "risk_score": round(risk_score, 1),
         "risk_factors": reasons,
-        "trust_score": round(trust_score, 1),
-        "avg_order_amt": round(avg, 2),
         "latency_ms": f"{latency:.2f}ms",
     }
 
@@ -487,3 +566,36 @@ async def mark_delivered(uid: str, key_data: dict = Depends(require_api_key)):
     except Exception as e:
         logging.error(f"Failed to update delivery rep: {e}")
         return {"uid": uid, "status": "failed", "reason": "DB unreachable"}
+
+# ── Observability: Explain Decisions ──────────────────────────────────────────
+@app.get("/v1/explain/{risk_id}", summary="Get human-readable reasoning for a fraud decision")
+async def explain_decision(risk_id: str, key_data: dict = Depends(require_api_key)):
+    try:
+        import json
+        raw_data = await r.get(f"explain:{risk_id}")
+        if not raw_data:
+            raise HTTPException(status_code=404, detail="Risk ID not found or expired (72h retention)")
+        
+        context = json.loads(raw_data)
+        
+        # Build explanation
+        narrative = []
+        m = context["metrics"]
+        if m["velocity"]: narrative.append(f"Multiple orders ({VELOCITY_MAX_ORDERS}+) detected in {VELOCITY_WINDOW_SECS}s window.")
+        if m["vpn"]:      narrative.append("Transaction attempted via Data Center or Anonymous Proxy (VPN).")
+        if m["price"]:    narrative.append("Transaction amount significantly deviates from historical average.")
+        if m["sybil"]:    narrative.append("Multiple UIDs linked to same delivery address.")
+        if m["trust"] < 30.0: narrative.append(f"Customer has low delivery score ({m['trust']:.0f}% success).")
+        
+        return {
+            "risk_id": risk_id,
+            "score": context["score"],
+            "decision": "FORCE_PREPAID" if context["score"] > 40 else "ALLOW_COD",
+            "findings": narrative,
+            "raw_metrics": m,
+            "timestamp": context["timestamp"]
+        }
+    except Exception as e:
+        if isinstance(e, HTTPException): raise
+        logging.error(f"Explain API Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal analysis service error")

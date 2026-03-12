@@ -22,10 +22,34 @@ fn calculate_trust_score(delivered: i32, total: i32) -> PyResult<f64> {
     Ok((delivered as f64 / total as f64) * 100.0)
 }
 
+#[pyfunction]
+fn evaluate_weighted_risk(
+    velocity_flag: bool,
+    sybil_flag: bool,
+    anomaly_flag: bool,
+    trust_score: f64,
+    vpn_flag: bool
+) -> PyResult<f64> {
+    let mut score = 0.0;
+    
+    if velocity_flag { score += 35.0; }
+    if sybil_flag    { score += 25.0; }
+    if anomaly_flag  { score += 20.0; }
+    if vpn_flag      { score += 15.0; }
+    
+    // Low trust penalty: if trust < 30, add up to 20 points
+    if trust_score < 30.0 {
+        score += (30.0 - trust_score) * 0.5;
+    }
+    
+    Ok(score.clamp(0.0, 100.0))
+}
+
 #[pymodule]
 fn vector_pulse(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(calculate_stats, m)?)?;
     m.add_function(wrap_pyfunction!(is_anomaly_sigma, m)?)?;
     m.add_function(wrap_pyfunction!(calculate_trust_score, m)?)?;
+    m.add_function(wrap_pyfunction!(evaluate_weighted_risk, m)?)?;
     Ok(())
 }
