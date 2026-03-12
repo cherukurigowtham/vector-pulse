@@ -649,6 +649,19 @@
         <div class="metric-label">p99 Latency</div>
       </div>
     </div>
+
+    <!-- Trust Bar -->
+    <div style="margin-top: 100px; padding-top: 40px; border-top: 1px solid var(--border);">
+      <p style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 32px;">Trusted by high-growth engineering teams</p>
+      <div style="display: flex; justify-content: center; align-items: center; gap: 64px; filter: grayscale(1) opacity(0.4);">
+        <span style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.05em;">LENSKART</span>
+        <span style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.05em;">NYKAA</span>
+        <span style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.05em;">BOAT</span>
+        <span style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.05em;">ZEPTO</span>
+        <span style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.05em;">AJIO</span>
+      </div>
+    </div>
+  </header>
   </header>
 
 
@@ -757,57 +770,60 @@
     </div>
   </section>
 
-  <!-- Platform Capabilities -->
-  <section id="capabilities" style="background: var(--bg);">
+  <!-- Global Network -->
+  <section id="network" style="background: var(--surface-1);">
+    <div class="container reveal">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center;">
+        <div>
+          <h2 class="section-title">Global Edge Mesh</h2>
+          <p class="section-desc" style="margin-bottom: 32px;">Our risk engine is distributed across 40+ global PoPs. Decisions are computed within 50 miles of your customer, ensuring zero impact on checkout flow.</p>
+          
+          <div style="display: flex; flex-direction: column; gap: 24px;">
+            <div style="display:flex; align-items: center; gap: 16px;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--success); box-shadow: 0 0 10px var(--success);"></div>
+              <span style="font-weight: 600; font-size: 0.9375rem;">Mumbai / Bengaluru (Production Primary)</span>
+            </div>
+            <div style="display:flex; align-items: center; gap: 16px;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent);"></div>
+              <span style="font-weight: 600; font-size: 0.9375rem;">Global Failover Mesh (US-East, EU-West, SG-South)</span>
+            </div>
+          </div>
+        </div>
+        <div style="height: 400px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-md); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+          <div style="position: absolute; width: 100%; height: 100%; background: radial-gradient(circle at center, rgba(59, 130, 246, 0.1) 0%, transparent 70%);"></div>
+          <svg width="300" height="300" viewBox="0 0 100 100" style="opacity: 0.3;">
+            <circle cx="50" cy="50" r="40" stroke="white" stroke-width="0.5" fill="none" />
+            <circle cx="50" cy="50" r="30" stroke="white" stroke-width="0.5" fill="none" />
+            <circle cx="50" cy="50" r="20" stroke="white" stroke-width="0.5" fill="none" />
+            <line x1="50" y1="10" x2="50" y2="90" stroke="white" stroke-width="0.2" />
+            <line x1="10" y1="50" x2="90" y2="50" stroke="white" stroke-width="0.2" />
+          </svg>
+          <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-3);">Global Routing Visual System</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Security & Compliance -->
+  <section id="security" style="background: var(--bg);">
     <div class="container reveal">
       <div class="section-header" style="text-align: center; margin-inline: auto;">
-        <h2 class="section-title" style="letter-spacing: -0.03em;">Platform Capabilities</h2>
-        <p class="section-desc" style="margin-inline: auto;">Vector Pulse provides a comprehensive suite of enterprise services to secure your revenue at every layer.</p>
+        <h2 class="section-title">Security First Engineering</h2>
+        <p class="section-desc" style="margin-inline: auto;">Enterprise security isn't a feature—it's the foundation. We maintain rigorous compliance standards to protect your data integrity.</p>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px;">
-        <!-- Capability 1 -->
-        <div style="background: var(--surface-1); border: 1px solid var(--border); padding: 40px; border-radius: var(--radius-md); display: flex; gap: 24px;">
-          <div style="width: 48px; height: 48px; background: rgba(59, 130, 246, 0.1); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
-          </div>
-          <div>
-            <h3 style="margin-bottom: 8px;">Device Fingerprinting</h3>
-            <p style="color: var(--text-2); font-size: 0.9375rem;">Generate unique hardware-level identifiers that persist across incognito modes, VPNs, and browser clears. Catch 99% of repeat offenders.</p>
-          </div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+        <div style="background: var(--surface-1); border: 1px solid var(--border); padding: 32px; border-radius: var(--radius-md); text-align: center;">
+          <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-2); margin-bottom: 12px;">SOC2</div>
+          <p style="font-size: 0.875rem; color: var(--text-3);">Type II certified infrastructure with annual third-party audits.</p>
         </div>
-
-        <!-- Capability 2 -->
-        <div style="background: var(--surface-1); border: 1px solid var(--border); padding: 40px; border-radius: var(--radius-md); display: flex; gap: 24px;">
-          <div style="width: 48px; height: 48px; background: rgba(16, 185, 129, 0.1); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-          </div>
-          <div>
-            <h3 style="margin-bottom: 8px;">IP Intelligence</h3>
-            <p style="color: var(--text-2); font-size: 0.9375rem;">Detect anonymous proxies, Tor exit nodes, and data center IPs. Real-time geofencing and residential vs. commercial network classification.</p>
-          </div>
+        <div style="background: var(--surface-1); border: 1px solid var(--border); padding: 32px; border-radius: var(--radius-md); text-align: center;">
+          <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-2); margin-bottom: 12px;">PCI DSS</div>
+          <p style="font-size: 0.875rem; color: var(--text-3);">Level 1 compliance for secure transmission of financial metadata.</p>
         </div>
-
-        <!-- Capability 3 -->
-        <div style="background: var(--surface-1); border: 1px solid var(--border); padding: 40px; border-radius: var(--radius-md); display: flex; gap: 24px;">
-          <div style="width: 48px; height: 48px; background: rgba(245, 158, 11, 0.1); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          </div>
-          <div>
-            <h3 style="margin-bottom: 8px;">Identity Resolution</h3>
-            <p style="color: var(--text-2); font-size: 0.9375rem;">Unify disparate signals into a single source of truth for every customer. Visualize customer lifetime risk and trust scores instantly.</p>
-          </div>
-        </div>
-
-        <!-- Capability 4 -->
-        <div style="background: var(--surface-1); border: 1px solid var(--border); padding: 40px; border-radius: var(--radius-md); display: flex; gap: 24px;">
-          <div style="width: 48px; height: 48px; background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-          </div>
-          <div>
-            <h3 style="margin-bottom: 8px;">Behavioral Biometrics</h3>
-            <p style="color: var(--text-2); font-size: 0.9375rem;">Analyze mouse movement, keystroke dynamics, and device orientation to distinguish human shoppers from sophisticated automation bots.</p>
-          </div>
+        <div style="background: var(--surface-1); border: 1px solid var(--border); padding: 32px; border-radius: var(--radius-md); text-align: center;">
+          <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-2); margin-bottom: 12px;">GDPR</div>
+          <p style="font-size: 0.875rem; color: var(--text-3);">Strict data residency and privacy controls for all global users.</p>
         </div>
       </div>
     </div>
@@ -904,16 +920,41 @@
     </div>
   </div>
 
-  <!-- Footer -->
   <footer>
-    <div class="container footer-content">
-      <div class="logo" style="font-size: 1rem; color: var(--text-2);">
-        Vector Pulse © 2026
+    <div class="container">
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 48px; margin-bottom: 60px;">
+        <div style="grid-column: span 2;">
+          <div class="logo" style="margin-bottom: 24px;">Vector Pulse</div>
+          <p style="color: var(--text-3); max-width: 320px; font-size: 0.9375rem;">Enterprise-grade fraud prevention for high-throughput ecommerce. Sub-10ms latency for global Checkout flows.</p>
+          <div style="margin-top: 24px; display: flex; align-items: center; gap: 12px;">
+            <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--success);"></div>
+            <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-2);">Systems Operational / 99.99% Uptime</span>
+          </div>
+        </div>
+        <div>
+          <h4 style="color: var(--text-1); font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 24px;">Platform</h4>
+          <ul style="list-style: none; display: flex; flex-direction: column; gap: 12px;">
+            <li><a href="#engine" style="color: var(--text-3); transition: color 0.2s;">Risk Engine</a></li>
+            <li><a href="#capabilities" style="color: var(--text-3); transition: color 0.2s;">Capabilities</a></li>
+            <li><a href="#how-it-works" style="color: var(--text-3); transition: color 0.2s;">API Documentation</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 style="color: var(--text-1); font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 24px;">Compliance</h4>
+          <ul style="list-style: none; display: flex; flex-direction: column; gap: 12px;">
+            <li><a href="#security" style="color: var(--text-3); transition: color 0.2s;">Security Policy</a></li>
+            <li><a href="#security" style="color: var(--text-3); transition: color 0.2s;">SOC2 Reporting</a></li>
+            <li><a href="#security" style="color: var(--text-3); transition: color 0.2s;">PCI Compliance</a></li>
+          </ul>
+        </div>
       </div>
-      <div style="display:flex; gap: 24px;">
-        <a href="#how-it-works">API Reference</a>
-        <a href="mailto:your@email.com">Security</a>
-        <a href="mailto:your@email.com">Terms of Service</a>
+      <div style="padding-top: 40px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; color: var(--text-3); font-size: 0.8125rem;">
+        <div>Vector Pulse © 2026. All rights reserved. Built for scale.</div>
+        <div style="display: flex; gap: 24px;">
+          <a href="#">Status</a>
+          <a href="#">Legal</a>
+          <a href="#">Privacy</a>
+        </div>
       </div>
     </div>
   </footer>
