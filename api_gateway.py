@@ -11,6 +11,9 @@ import logging
 import secrets
 import hashlib
 import httpx
+import aiosqlite
+import json
+from geolite2 import geolite2
 
 # ── Logging setup ──────────────────────────────────────────────────────────────
 import sys
@@ -34,6 +37,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Database Initialization ────────────────────────────────────────────────────
+AUDIT_DB = "audit_log.db"
+
+@app.on_event("startup")
+async def startup_event():
+    async with aiosqlite.connect(AUDIT_DB) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS risk_audit (
+                risk_id TEXT PRIMARY KEY,
+                uid TEXT,
+                email TEXT,
+                risk_score REAL,
+                decision TEXT,
+                shadow_mode INTEGER,
+                reasons TEXT,
+                metrics TEXT,
+                timestamp REAL,
+                outcome TEXT DEFAULT 'PENDING'
+            )
+        """)
+        await db.commit()
+
+# ── IP Intelligence Initialization ─────────────────────────────────────────────
+GEO_READER = geolite2.reader()
 
 # ── Redis Feature Store ────────────────────────────────────────────────────────
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
@@ -152,7 +180,8 @@ class Order(BaseModel):
     amt: float
     addr: str
     pin: str
-    ip: str = "127.0.0.1" # Default if not provided
+    ip: str = "127.0.0.1"
+    shadow: bool = False # If True, will NOT block even if risky
 
 
 class RegisterRequest(BaseModel):
@@ -188,12 +217,15 @@ async def _check_velocity(uid: str) -> bool:
 
 async def _check_sybil(uid: str, address: str) -> bool:
     try:
-        address_hash = hash(address.strip().lower())
+        # Phase 12: Use Rust-based normalization for precision
+        normalized = vector_pulse.normalize_address(address)
+        # Use stable hash for consistency across restarts
+        address_hash = hashlib.sha256(normalized.encode()).hexdigest()
         key = f"addr:{address_hash}"
         async with r.pipeline() as pipe:
             pipe.sadd(key, uid)
             pipe.scard(key)
-            pipe.expire(key, 86400) # Keep for 24h
+            pipe.expire(key, 86400 * 7) # Keep for 7 days
             res = await pipe.execute()
         return res[1] > SYBIL_ADDRESS_LIMIT
     except Exception as e:
@@ -225,31 +257,63 @@ async def _check_price_anomaly(uid: str, amount: float) -> tuple[bool, float, fl
 async def _check_ip_intelligence(ip: str) -> bool:
     """
     Detects if an IP is a proxy, VPN, or from a data center.
-    Uses a mock/cached approach for 127.0.0.1, real lookup otherwise.
+    Phase 12: Uses local GeoIP database for sub-10ms lookup, 
+    falling back to external intelligence for specialized VPN flags.
     """
     if ip == "127.0.0.1": return False
     
     try:
-        # Check cache first to save API credits and latency
+        # 1. Check local Geolite2 for Geofencing (RTOs higher from non-IN IPs)
+        match = GEO_READER.get(ip)
+        is_risky_geo = False
+        if match:
+            country = match.get("country", {}).get("iso_code")
+            if country and country != "IN":
+                is_risky_geo = True # Higher risk if order is from outside India
+        
+        # 2. Check cache for specialized VPN flags
         cache_key = f"ipint:{ip}"
         cached = await r.get(cache_key)
         if cached is not None:
-            return cached == "1"
+            return cached == "1" or is_risky_geo
 
-        # Real lookup (using ip-api.com for demonstration)
+        # 3. Fallback to specialized VPN Intelligence
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"http://ip-api.com/json/{ip}?fields=proxy,hosting", timeout=1.0)
             if resp.status_code == 200:
                 data = resp.json()
                 is_proxy = data.get("proxy", False) or data.get("hosting", False)
                 
-                # Cache for 24 hours
+                # Cache results
                 await r.setex(cache_key, 86400, "1" if is_proxy else "0")
-                return is_proxy
-        return False
+                return is_proxy or is_risky_geo
+                
+        return is_risky_geo
     except Exception as e:
         logging.error(f"IP Intelligence Lookup Failed for {ip}: {e}")
         return False
+
+async def _log_audit_event(risk_id: str, email: str, context: dict, decision: str, shadow: bool):
+    try:
+        async with aiosqlite.connect(AUDIT_DB) as db:
+            await db.execute("""
+                INSERT INTO risk_audit 
+                (risk_id, uid, email, risk_score, decision, shadow_mode, reasons, metrics, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                risk_id, 
+                context["uid"], 
+                email, 
+                context["score"], 
+                decision, 
+                1 if shadow else 0,
+                ",".join(context["flags"]),
+                json.dumps(context["metrics"]),
+                context["timestamp"]
+            ))
+            await db.commit()
+    except Exception as e:
+        logging.error(f"Audit Logging Failed: {e}")
 
 async def _get_trust_score(uid: str) -> float:
     try:
@@ -506,31 +570,36 @@ async def check_order(order: Order, key_data: dict = Depends(require_api_key)):
 
     # Decision threshold logic
     is_risky = risk_score > 40.0
-    action = "FORCE_PREPAID" if is_risky else "ALLOW_COD"
+    # Shadow Mode: Evaluate but never block
+    is_blocked = is_risky and not order.shadow
+    action = "FORCE_PREPAID" if is_blocked else "ALLOW_COD"
     risk_id = secrets.token_hex(8)
 
-    # 3. Update Stats (Fire and Forget)
+    # 3. Update Stats & Persistent Audit
     try:
-        import json
         context = {
             "uid": uid,
-            "score": risk_score,
+            "score": float(risk_score),
             "flags": reasons,
             "metrics": {
                 "velocity": is_velocity_flag,
                 "sybil": is_sybil_flag,
                 "price": is_price_anomaly,
-                "trust": trust_score,
+                "trust": float(trust_score),
                 "vpn": is_vpn_flag
             },
             "timestamp": time.time()
         }
         
+        # Async background logging (simulated by await here for reliability)
+        await _log_audit_event(risk_id, key_data.get("email"), context, action, order.shadow)
+
         async with r.pipeline() as pipe:
-            pipe.setex(f"explain:{risk_id}", 86400 * 3, json.dumps(context)) # 3 day retention
+            pipe.setex(f"explain:{risk_id}", 86400 * 3, json.dumps(context)) # 3 day high-speed cache
             if is_risky:
                 pipe.incrby("total_savings_inr", 70)
-                pipe.lpush("recent_blocks", f"{uid}: {', '.join(reasons)} (Score: {risk_score:.0f}) [ID: {risk_id}]")
+                status_label = "SHADOW_BLOCK" if order.shadow else "BLOCK"
+                pipe.lpush("recent_blocks", f"{uid}: {', '.join(reasons)} ({status_label}: {risk_score:.0f}) [ID: {risk_id}]")
                 pipe.ltrim("recent_blocks", 0, 49)
             
             if is_velocity_flag: pipe.incr("stat:velocity")
@@ -548,7 +617,8 @@ async def check_order(order: Order, key_data: dict = Depends(require_api_key)):
         "uid": uid,
         "risk_id": risk_id,
         "decision": action,
-        "risk_score": round(risk_score, 1),
+        "shadow_mode": order.shadow,
+        "risk_score": round(float(risk_score), 1),
         "risk_factors": reasons,
         "latency_ms": f"{latency:.2f}ms",
     }
@@ -571,12 +641,23 @@ async def mark_delivered(uid: str, key_data: dict = Depends(require_api_key)):
 @app.get("/v1/explain/{risk_id}", summary="Get human-readable reasoning for a fraud decision")
 async def explain_decision(risk_id: str, key_data: dict = Depends(require_api_key)):
     try:
-        import json
         raw_data = await r.get(f"explain:{risk_id}")
         if not raw_data:
-            raise HTTPException(status_code=404, detail="Risk ID not found or expired (72h retention)")
-        
-        context = json.loads(raw_data)
+            # Fallback to persistent DB if Redis cache expired
+            async with aiosqlite.connect(AUDIT_DB) as db:
+                db.row_factory = aiosqlite.Row
+                async with db.execute("SELECT * FROM risk_audit WHERE risk_id = ?", (risk_id,)) as cursor:
+                    row = await cursor.fetchone()
+                    if not row:
+                        raise HTTPException(status_code=404, detail="Risk ID not found")
+                    context = {
+                        "score": row["risk_score"],
+                        "flags": row["reasons"].split(",") if row["reasons"] else [],
+                        "metrics": json.loads(row["metrics"]),
+                        "timestamp": row["timestamp"]
+                    }
+        else:
+            context = json.loads(raw_data)
         
         # Build explanation
         narrative = []
@@ -585,7 +666,7 @@ async def explain_decision(risk_id: str, key_data: dict = Depends(require_api_ke
         if m["vpn"]:      narrative.append("Transaction attempted via Data Center or Anonymous Proxy (VPN).")
         if m["price"]:    narrative.append("Transaction amount significantly deviates from historical average.")
         if m["sybil"]:    narrative.append("Multiple UIDs linked to same delivery address.")
-        if m["trust"] < 30.0: narrative.append(f"Customer has low delivery score ({m['trust']:.0f}% success).")
+        if m.get("trust", 50.0) < 30.0: narrative.append(f"Customer has low delivery score ({m['trust']:.0f}% success).")
         
         return {
             "risk_id": risk_id,
@@ -599,3 +680,22 @@ async def explain_decision(risk_id: str, key_data: dict = Depends(require_api_ke
         if isinstance(e, HTTPException): raise
         logging.error(f"Explain API Error: {e}")
         raise HTTPException(status_code=500, detail="Internal analysis service error")
+
+# ── Feedback Loop: Update Outcome ─────────────────────────────────────────────
+class OutcomeUpdate(BaseModel):
+    risk_id: str
+    status: str # DELIVERED, RTO, FRAUD_CONFIRMED
+
+@app.post("/v1/outcome", summary="Report the final outcome of a transaction (ML Feedback Loop)")
+async def update_outcome(update: OutcomeUpdate, key_data: dict = Depends(require_api_key)):
+    try:
+        async with aiosqlite.connect(AUDIT_DB) as db:
+            await db.execute(
+                "UPDATE risk_audit SET outcome = ? WHERE risk_id = ?", 
+                (update.status, update.risk_id)
+            )
+            await db.commit()
+        return {"status": "success", "risk_id": update.risk_id, "updated_to": update.status}
+    except Exception as e:
+        logging.error(f"Outcome update failed: {e}")
+        raise HTTPException(status_code=500, detail="Persistence layer error")

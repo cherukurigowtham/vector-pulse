@@ -45,11 +45,34 @@ fn evaluate_weighted_risk(
     Ok(score.clamp(0.0, 100.0))
 }
 
+#[pyfunction]
+fn normalize_address(addr: String) -> PyResult<String> {
+    let mut normalized = addr.to_lowercase()
+        .replace(".", "")
+        .replace(",", "")
+        .replace("-", " ")
+        .replace("/", " ")
+        .replace("#", "")
+        .replace("  ", " ");
+    
+    // Simple Indian Address Consolidation
+    normalized = normalized.replace("apartment", "apt")
+        .replace("apartment", "apt")
+        .replace("floor", "fl")
+        .replace("road", "rd")
+        .replace("street", "st")
+        .replace("block", "blk")
+        .replace("sector", "sec");
+
+    Ok(normalized.trim().to_string())
+}
+
 #[pymodule]
 fn vector_pulse(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(calculate_stats, m)?)?;
     m.add_function(wrap_pyfunction!(is_anomaly_sigma, m)?)?;
     m.add_function(wrap_pyfunction!(calculate_trust_score, m)?)?;
     m.add_function(wrap_pyfunction!(evaluate_weighted_risk, m)?)?;
+    m.add_function(wrap_pyfunction!(normalize_address, m)?)?;
     Ok(())
 }
