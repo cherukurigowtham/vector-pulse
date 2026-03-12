@@ -16,39 +16,41 @@
 
   <style>
     :root {
-      /* Refined Minimalist Dark Theme */
-      --bg: #0A0A0A;
-      --surface-1: #111111;
-      --surface-2: #1A1A1A;
-      --surface-3: #222222;
+      /* Premium Enterprise Dark Theme */
+      --bg: #030303;
+      --surface-1: #0A0A0A;
+      --surface-2: #141414;
+      --surface-3: #1E1E1E;
 
-      --border: #2A2A2A;
-      --border-hover: #3A3A3A;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.15);
 
-      --text-1: #FAFAFA;
+      --text-1: #FFFFFF;
       --text-2: #A1A1AA;
-      --text-3: #71717A;
+      --text-3: #52525B;
 
       --brand: #FFFFFF;
       --accent: #3B82F6;
-      /* Professional True Blue */
       --accent-hover: #2563EB;
 
       --success: #10B981;
       --danger: #EF4444;
       --warning: #F59E0B;
 
-      --radius-sm: 6px;
-      --radius-md: 12px;
-      --radius-lg: 24px;
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 32px;
 
       --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
       --shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.8);
+      --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 
-      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
 
       --content-max: 1200px;
+      --glass-bg: rgba(10, 10, 10, 0.7);
+      --glass-blur: blur(12px);
     }
 
     * {
@@ -67,7 +69,25 @@
       color: var(--text-1);
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
       overflow-x: hidden;
+      letter-spacing: -0.01em;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0px); }
+    }
+
+    .reveal {
+      animation: fadeIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
     }
 
     /* ── Typography & Globals ── */
@@ -599,34 +619,34 @@
   </nav>
 
   <!-- Hero -->
-  <header class="hero container">
-    <div class="badge">
+  <header class="hero container reveal">
+    <div class="badge" style="animation: float 6s ease-in-out infinite;">
       <div class="status-dot"></div> Systems Operational
     </div>
-    <h1>Eliminate COD Fraud.<br />Automate Decisions.</h1>
+    <h1 style="background: linear-gradient(to right, #FFF 20%, #A1A1AA 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Eliminate COD Fraud.<br />Automate Decisions.</h1>
     <p>Enterprise-grade fraud detection built for D2C brands. Stop fake orders and RTO losses instantly with our
       proprietary machine learning engine.</p>
 
     <div class="hero-actions">
-      <a href="#pricing" class="btn btn-primary">Start Building for Free</a>
-      <a href="#how-it-works" class="btn btn-secondary">Explore the Platform</a>
+      <a href="#pricing" class="btn btn-primary" style="box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);">Start Building for Free</a>
+      <a href="#how-it-works" class="btn btn-secondary" style="backdrop-filter: var(--glass-blur); background: var(--glass-bg);">Explore the Platform</a>
     </div>
 
-    <div class="metrics">
-      <div class="metric-card">
+    <div class="metrics" style="background: transparent; border: none; gap: 24px; margin-top: 80px;">
+      <div class="metric-card" style="border: 1px solid var(--border); border-radius: var(--radius-md); background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);">
         <div class="metric-val metric-primary" id="val-savings">₹0</div>
         <div class="metric-label">Loss Prevented</div>
       </div>
-      <div class="metric-card">
+      <div class="metric-card" style="border: 1px solid var(--border); border-radius: var(--radius-md); background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);">
         <div class="metric-val" id="val-tx">0</div>
         <div class="metric-label">Analysed</div>
       </div>
-      <div class="metric-card">
+      <div class="metric-card" style="border: 1px solid var(--border); border-radius: var(--radius-md); background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);">
         <div class="metric-val">3</div>
         <div class="metric-label">Threat Models</div>
       </div>
-      <div class="metric-card">
-        <div class="metric-val">&lt;10ms</div>
+      <div class="metric-card" style="border: 1px solid var(--border); border-radius: var(--radius-md); background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);">
+        <div class="metric-val" style="color: var(--accent);">&lt;10ms</div>
         <div class="metric-label">p99 Latency</div>
       </div>
     </div>
@@ -643,14 +663,14 @@
 
       <div class="terminal-container">
         <!-- Feed -->
-        <div class="terminal">
-          <div class="term-header">
-            <div class="term-dot"></div>
-            <div class="term-dot"></div>
-            <div class="term-dot"></div>
+        <div class="terminal" style="background: var(--surface-1); box-shadow: var(--shadow-glass); border: 1px solid var(--border);">
+          <div class="term-header" style="background: rgba(255,255,255,0.02); backdrop-filter: var(--glass-blur);">
+            <div class="term-dot" style="background: #FF5F56;"></div>
+            <div class="term-dot" style="background: #FFBD2E;"></div>
+            <div class="term-dot" style="background: #27C93F;"></div>
             <span class="term-title">production-logs/tail -f risk_engine.log</span>
           </div>
-          <div class="term-body" id="live-console">
+          <div class="term-body" id="live-console" style="background: var(--bg);">
             <!-- Populated via JS -->
           </div>
         </div>
@@ -676,11 +696,11 @@
 
   <!-- Integration / Developer Snippet -->
   <section id="how-it-works">
-    <div class="container">
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center;">
+    <div class="container reveal">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center;">
 
         <div>
-          <h2 class="section-title">Drop-in Integration</h2>
+          <h2 class="section-title" style="letter-spacing: -0.03em;">Drop-in Integration</h2>
           <p class="section-desc" style="margin-bottom: 32px;">A single, stateless HTTP request before payment gateway
             initialization. We return a normalized binary decision.</p>
 
@@ -696,27 +716,36 @@
           </ul>
 
           <!-- Inline Auth Widget -->
-          <div id="inlineAuthWidget" style="background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 32px; margin-top: 32px; max-width: 400px; box-shadow: var(--shadow-sm);">
+          <div id="inlineAuthWidget" style="background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 40px; margin-top: 32px; max-width: 440px; box-shadow: var(--shadow-lg); transition: border-color 0.3s ease;">
             <div id="inlineAuthFlow">
-              <div style="display:flex; border-bottom:1px solid var(--border); margin-bottom:24px;">
-                <button id="inlineTabSignup" onclick="switchInlineTab('signup')" style="flex:1; padding:8px; background:none; border:none; color:var(--text-1); border-bottom:2px solid var(--brand); cursor:pointer; font-size:14px; font-weight:500;">Sign Up</button>
-                <button id="inlineTabLogin" onclick="switchInlineTab('login')" style="flex:1; padding:8px; background:none; border:none; color:var(--text-3); border-bottom:2px solid transparent; cursor:pointer; font-size:14px; font-weight:500;">Log In</button>
+              <div style="display:flex; border-bottom:1px solid var(--border); margin-bottom:32px; gap: 8px;">
+                <button id="inlineTabSignup" onclick="switchInlineTab('signup')" style="flex:1; padding:12px; background:none; border:none; color:var(--text-1); border-bottom:2px solid var(--brand); cursor:pointer; font-size:15px; font-weight:600; transition: all 0.2s;">Sign Up</button>
+                <button id="inlineTabLogin" onclick="switchInlineTab('login')" style="flex:1; padding:12px; background:none; border:none; color:var(--text-3); border-bottom:2px solid transparent; cursor:pointer; font-size:15px; font-weight:600; transition: all 0.2s;">Log In</button>
               </div>
-              <p style="color:var(--text-2); font-size:0.875rem; margin-bottom: 24px;" id="inlineAuthDesc">Create a free account to generate your live key.</p>
+              <p style="color:var(--text-2); font-size:0.9375rem; margin-bottom: 28px; line-height: 1.5;" id="inlineAuthDesc">Create a free account to generate your live key.</p>
               
               <form id="inlineAuthForm" onsubmit="handleInlineAuth(event)">
-                <input type="email" id="inlineEmailInput" class="form-input" placeholder="you@company.com" required style="padding: 10px 14px; font-size: 0.875rem; margin-bottom: 12px;"/>
-                <input type="password" id="inlinePasswordInput" class="form-input" placeholder="Password" required minlength="6" style="padding: 10px 14px; font-size: 0.875rem; margin-bottom: 16px;"/>
-                <button type="submit" class="btn btn-primary" style="width:100%; padding: 10px;" id="inlineAuthSubmitBtn">Create Account</button>
+                <div style="margin-bottom: 20px;">
+                  <label style="display:block; font-size: 0.75rem; color: var(--text-3); text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">Email Address</label>
+                  <input type="email" id="inlineEmailInput" class="form-input" placeholder="you@company.com" required style="margin-bottom: 0; background: rgba(255,255,255,0.02);"/>
+                </div>
+                <div style="margin-bottom: 24px;">
+                  <label style="display:block; font-size: 0.75rem; color: var(--text-3); text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">Password</label>
+                  <input type="password" id="inlinePasswordInput" class="form-input" placeholder="At least 6 characters" required minlength="6" style="margin-bottom: 0; background: rgba(255,255,255,0.02);"/>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; border-radius: var(--radius-sm); font-weight: 600;" id="inlineAuthSubmitBtn">Create Account</button>
               </form>
-              <div id="inline-modal-error" style="color: var(--danger); font-size: 0.8125rem; margin-top: 12px; display: none;"></div>
+              <div id="inline-modal-error" style="color: var(--danger); font-size: 0.8125rem; margin-top: 16px; display: none; text-align: center; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm);"></div>
             </div>
             
             <div id="inlineDashboardFlow" style="display:none;">
-              <h3 style="font-size: 1.125rem; margin-bottom: 4px;">Your API Environment</h3>
-              <p style="color:var(--text-2); font-size:0.875rem; margin-bottom: 16px;">Include this key in the Authorization header of your requests.</p>
-              <div class="key-display" id="inlineKeyDisplay" style="display:block; margin-bottom: 16px; font-size: 0.75rem; padding: 12px;"></div>
-              <button onclick="handleLogout()" class="btn btn-secondary" style="width:100%; border:1px solid var(--danger); color:var(--danger); font-size:0.875rem; padding: 8px;">Log Out Session</button>
+              <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.02em;">Developer Dashboard</h3>
+              <p style="color:var(--text-2); font-size:0.9375rem; margin-bottom: 24px; line-height: 1.5;">Authenticate your requests with the key below.</p>
+              <div style="margin-bottom: 24px;">
+                <label style="display:block; font-size: 0.75rem; color: var(--text-3); text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">API Key</label>
+                <div class="key-display" id="inlineKeyDisplay" style="display:block; margin-bottom: 0; background: #000; border: 1px solid rgba(16, 185, 129, 0.3); color: var(--success); font-weight: 500;"></div>
+              </div>
+              <button onclick="handleLogout()" class="btn btn-secondary" style="width:100%; border:1px solid rgba(239, 68, 68, 0.2); color:var(--danger); font-weight: 600; background: rgba(239, 68, 68, 0.05);">Terminate Session</button>
             </div>
           </div>
 
@@ -749,9 +778,9 @@
 
   <!-- Architecture / Features -->
   <section id="engine" style="background: var(--surface-1);">
-    <div class="container">
+    <div class="container reveal">
       <div class="section-header">
-        <h2 class="section-title">Architected for Scale</h2>
+        <h2 class="section-title" style="letter-spacing: -0.03em;">Architected for Scale</h2>
         <p class="section-desc">Vector Pulse uses a proprietary compute architecture designed for high-throughput,
           low-latency transaction processing.</p>
       </div>
@@ -778,9 +807,9 @@
 
   <!-- Pricing -->
   <section id="pricing">
-    <div class="container">
+    <div class="container reveal">
       <div class="section-header text-center" style="text-align: center;">
-        <h2 class="section-title">Transparent Infrastructure Pricing</h2>
+        <h2 class="section-title" style="letter-spacing: -0.03em;">Infrastructure Pricing</h2>
         <p class="section-desc" style="margin-inline: auto;">Predictable overhead. No hidden fees. Start for free on
           staging environments.</p>
       </div>
@@ -819,7 +848,8 @@
         </div>
 
         <!-- Tier 2 -->
-        <div class="price-card pro">
+        <div class="price-card pro" style="border-color: var(--accent); box-shadow: 0 0 40px rgba(59, 130, 246, 0.1);">
+          <div style="position: absolute; top: 12px; right: 24px; background: var(--accent); color: white; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Most Popular</div>
           <div class="price-tier">Growth</div>
           <div class="price-amt">₹2,999 <span>/ mo</span></div>
           <p style="color:var(--text-3); font-size:0.875rem;">100K API calls per month</p>
