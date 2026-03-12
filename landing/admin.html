@@ -175,7 +175,7 @@
       document.getElementById('modalContent').textContent = 'Loading forensic data...';
       
       try {
-        const res = await fetch(`https://vector-pulse-b97i.onrender.com/v1/explain/${riskId}`, {
+        const res = await fetch(`/v1/explain/${riskId}`, {
           headers: { 'X-Admin-Key': currentAdminKey }
         });
         const data = await res.json();
@@ -206,7 +206,7 @@
       if (btn) btn.textContent = 'Verifying Signal...';
       
       try {
-        const res = await fetch('https://vector-pulse-b97i.onrender.com/v1/admin/users', {
+        const res = await fetch('/v1/admin/users', {
           headers: { 'X-Admin-Key': currentAdminKey }
         });
         

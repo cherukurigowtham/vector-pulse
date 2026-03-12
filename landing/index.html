@@ -1045,10 +1045,10 @@
         const endpoint = currentMode === 'signup' ? '/auth/signup' : '/auth/login';
         
         // Ensure credentials are included to process cookies
-        const res = await fetch(`https://vector-pulse-b97i.onrender.com/v1${endpoint}`, {
+        const res = await fetch(`/v1${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'omit', // Vercel handles API differently, omit cookies during initial test
+          credentials: 'same-origin',
           body: JSON.stringify({ email, password })
         });
         
@@ -1067,7 +1067,7 @@
     }
     
     async function handleLogout() {
-      await fetch('https://vector-pulse-b97i.onrender.com/v1/auth/logout', { method: 'POST', credentials: 'omit' });
+      await fetch('/v1/auth/logout', { method: 'POST', credentials: 'same-origin' });
       document.getElementById('authFlow').style.display = 'block';
       document.getElementById('dashboardFlow').style.display = 'none';
       document.getElementById('emailInput').value = '';
@@ -1084,7 +1084,7 @@
     
     async function checkSession() {
       try {
-        const res = await fetch('https://vector-pulse-b97i.onrender.com/v1/auth/me', { credentials: 'omit' });
+        const res = await fetch('/v1/auth/me', { credentials: 'same-origin' });
         if(res.ok) {
           const data = await res.json();
           document.getElementById('authFlow').style.display = 'none';
