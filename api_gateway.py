@@ -106,6 +106,7 @@ RATE_LIMITS = {
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 ADMIN_KEY = os.getenv("ADMIN_SECRET_KEY", "vp_admin_changeme")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "cherukurigowtham851@gmail.com")
 
 
 def _hash_key(key: str) -> str:
@@ -336,7 +337,16 @@ async def root():
     return FileResponse("landing/index.html")
 
 @app.get("/admin", include_in_schema=False)
-async def admin_portal():
+async def admin_portal(request: Request):
+    # Phase 14: Restrict /admin to the specific Admin Email session
+    session_id = request.cookies.get("vp_session")
+    if not session_id:
+        return FileResponse("landing/index.html") # Redirect to login if no session
+        
+    email = await r.get(f"session:{session_id}")
+    if email != ADMIN_EMAIL:
+         raise HTTPException(status_code=403, detail="Forbidden: Admin Access Only")
+         
     return FileResponse("landing/admin.html")
 
 
@@ -350,15 +360,25 @@ async def health():
 
 
 # ── Admin: Issue API Keys  ─────────────────────────────────────────────────────
-def require_admin(x_admin_key: str = Header(None)):
-    if x_admin_key != ADMIN_KEY:
-        raise HTTPException(status_code=403, detail="Invalid admin key")
-    return x_admin_key
+async def require_admin(request: Request, x_admin_key: str = Header(None)):
+    # Legacy: Check static key
+    if x_admin_key == ADMIN_KEY:
+        return x_admin_key
+        
+    # Phase 14: Support Session-based Auth for Admin
+    session_id = request.cookies.get("vp_session")
+    if session_id:
+        email = await r.get(f"session:{session_id}")
+        if email == ADMIN_EMAIL:
+            return email
+            
+    raise HTTPException(status_code=403, detail="Invalid admin credentials or session")
 
 @app.get("/v1/admin/users", summary="List all registered API keys and their usage")
 async def get_all_users(_: str = Depends(require_admin)):
     keys = await r.smembers("admin:all_keys")
     users = []
+    total_savings = 0
     
     current_month = time.strftime('%Y-%m')
     for key_hash in keys:
@@ -371,19 +391,66 @@ async def get_all_users(_: str = Depends(require_admin)):
             key_data = res[0]
             if not key_data: continue
                 
+            email = key_data.get("email", "unknown")
+            
+            # Phase 15: Hide Admin from User Registry for Privacy
+            if email == ADMIN_EMAIL:
+                continue
+
             usage = int(res[1] or 0)
             
+            # Retrieve the API key from B2C profile if not in apikey profile
+            api_key = key_data.get("api_key")
+            if not api_key:
+                user_profile = await r.hgetall(f"user:{email}")
+                api_key = user_profile.get("api_key", "REDACTED")
+
             users.append({
-                "email": key_data.get("email", "unknown"),
-                "plan": key_data.get("plan", "unknown"),
+                "email": email,
+                "api_key": api_key,
+                "plan": key_data.get("plan", "free"),
                 "created_at": key_data.get("created_at", "unknown"),
                 "usage_this_month": usage,
                 "limit": RATE_LIMITS.get(key_data.get("plan", "free"), 1_000)
             })
-        except: continue
-        
+        except Exception:
+            continue
+            
     users.sort(key=lambda x: x["usage_this_month"], reverse=True)
-    return {"users": users, "total_users": len(keys)}
+    return {"users": users, "total_users": len(users)}
+
+@app.delete("/v1/admin/user/{email}", summary="Purge a user account and all associated data")
+async def delete_user(email: str, _: str = Depends(require_admin)):
+    # 1. Get user data to find the API key
+    user_profile = await r.hgetall(f"user:{email}")
+    api_key = user_profile.get("api_key")
+    
+    # If not in B2C, check apikey profiles
+    if not api_key:
+        # This is a bit complex since we only have hashes in admin:all_keys
+        # But we can iterate if it's a small set
+        all_hashes = await r.smembers("admin:all_keys")
+        for h in all_hashes:
+            profile = await r.hgetall(f"apikey:{h}")
+            if profile.get("email") == email:
+                # We found it, but we might not have the raw key here depending on how it was created
+                api_key = "profile_deleted"
+                break
+
+    async with r.pipeline() as pipe:
+        pipe.delete(f"user:{email}")
+        if api_key and api_key != "profile_deleted":
+            key_hash = _hash_key(api_key)
+            pipe.delete(f"apikey:{key_hash}")
+            pipe.srem("admin:all_keys", key_hash)
+            pipe.delete(f"key:{api_key}")
+        
+        # Comprehensive purge
+        pipe.delete(f"usage:{email}:{datetime.now().strftime('%Y-%m')}")
+        pipe.delete(f"savings:{email}")
+        await pipe.execute()
+    
+    return {"status": "success", "message": f"User {email} and associated data purged."}
 
 @app.post("/v1/register", summary="Issue an API key (admin only)")
 async def register(req: RegisterRequest):
@@ -449,6 +516,10 @@ def _hash_password(password: str, salt: str) -> str:
 
 @app.post("/v1/auth/signup", summary="Create a new user account")
 async def auth_signup(req: AuthRequest, response: Response, request: Request):
+    # Phase 15: Reserve Admin Email exclusively
+    if req.email == ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Sovereign Identity Reserved")
+
     if await r.hexists(f"user:{req.email}", "pwd_hash"):
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -526,10 +597,30 @@ async def auth_me(request: Request):
     if not user_data:
         raise HTTPException(status_code=404, detail="User not found")
         
-    # We never return passwords or salts. Just the key and email.
+    # Fetch detailed metrics for the Signal Hub using an async pipeline
+    current_month = time.strftime('%Y-%m')
+    async with r.pipeline() as pipe:
+        pipe.get(f"usage:{email}:{current_month}")
+        pipe.get(f"savings:{email}")
+        res = await pipe.execute()
+    
+    usage = int(res[0] or 0)
+    savings = float(res[1] or 0)
+    plan = user_data.get("plan", "free")
+    limit = RATE_LIMITS.get(plan, 1000)
+
+    # We never return passwords or salts.
     return {
         "email": email,
-        "api_key": user_data.get("api_key")
+        "api_key": user_data.get("api_key"),
+        "is_admin": email == ADMIN_EMAIL,
+        "metrics": {
+            "usage": usage,
+            "limit": limit,
+            "savings": savings,
+            "plan": plan.upper(),
+            "pct": min(100, round((usage / limit) * 100)) if limit > 0 else 0
+        }
     }
 
 # ── Core: Risk Check ───────────────────────────────────────────────────────────

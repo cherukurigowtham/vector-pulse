@@ -127,8 +127,10 @@
           <thead>
             <tr>
               <th>Client Email</th>
+              <th>API Key</th>
               <th>Tier</th>
               <th>Quota Consumption</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="userTableBody"></tbody>
@@ -150,9 +152,8 @@
   <script>
     let currentAdminKey = sessionStorage.getItem('vp_admin_key') || '';
     
-    if(currentAdminKey) {
-      loadDashboard();
-    }
+    // Load dashboard immediately; if session is valid admin, it will skip auth box
+    loadDashboard();
     
     function login(e) {
       e.preventDefault();
@@ -176,7 +177,8 @@
       
       try {
         const res = await fetch(`/v1/explain/${riskId}`, {
-          headers: { 'X-Admin-Key': currentAdminKey }
+          headers: { 'X-Admin-Key': currentAdminKey },
+          credentials: 'same-origin'
         });
         const data = await res.json();
         
@@ -207,7 +209,8 @@
       
       try {
         const res = await fetch('/v1/admin/users', {
-          headers: { 'X-Admin-Key': currentAdminKey }
+          headers: { 'X-Admin-Key': currentAdminKey },
+          credentials: 'same-origin'
         });
         
         if (res.status === 403 || res.status === 401) {
@@ -238,12 +241,16 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><strong>${u.email}</strong></td>
+            <td><code>${u.api_key}</code></td>
             <td><span style="font-size:11px; background:#222; padding:2px 6px; border-radius:4px; text-transform:uppercase;">${u.plan}</span></td>
             <td>
               <div style="height:4px;width:100px;background:#222;border-radius:2px;overflow:hidden;margin-bottom:4px;">
                 <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:2px;"></div>
               </div>
               <span style="font-size:11px; color:#666;">${pct}% tier used</span>
+            </td>
+            <td>
+              <button onclick="confirmPurge('${u.email}')" style="background:none; border:1px solid var(--danger); color:var(--danger); font-size:10px; padding:4px 8px; border-radius:4px; cursor:pointer;">PURGE</button>
             </td>
           `;
           tbody.appendChild(tr);
@@ -284,6 +291,31 @@
         document.getElementById('dashBox').style.display = 'none';
       } finally {
         if (btn) btn.textContent = 'Access Dashboard';
+      }
+    }
+
+    async function confirmPurge(email) {
+      if (confirm(`CRITICAL: Are you sure you want to permanently purge ${email}? This will delete their API Key and usage history.`)) {
+        await deleteUser(email);
+      }
+    }
+
+    async function deleteUser(email) {
+      try {
+        const res = await fetch(`/v1/admin/user/${email}`, {
+          method: 'DELETE',
+          headers: { 'X-Admin-Key': currentAdminKey },
+          credentials: 'same-origin'
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(data.message);
+          loadDashboard(); // Refresh
+        } else {
+          alert("Purge failed: " + data.detail);
+        }
+      } catch(e) {
+        alert("Network error during purge");
       }
     }
   </script>
