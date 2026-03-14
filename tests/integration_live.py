@@ -24,7 +24,7 @@ async def r_client():
         socket_timeout=5,
     )
     yield client
-    await client.close()
+    await client.aclose()
 
 
 @pytest.fixture(scope="session")
