@@ -1402,6 +1402,17 @@ async def admin_portal():
     )
 
 
+@app.get("/merchant", include_in_schema=False)
+async def merchant_portal():
+    return FileResponse(
+        "landing/merchant.html",
+        headers={
+            "Cache-Control": "no-store",
+            "Pragma": "no-cache",
+        },
+    )
+
+
 @app.get("/health")
 async def health():
     redis_ok = False
@@ -1548,6 +1559,94 @@ async def get_risk_config_history(email: str, _: str = Depends(require_admin)):
             }
         )
     return {"email": email, "history": history}
+
+
+# ── Merchant: Self-Service ───────────────────────────────────────────────────
+async def require_merchant_key(api_key: str = Security(api_key_header)):
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Missing X-API-Key header")
+    
+    key_hash = _hash_key(api_key)
+    key_data = await r.hgetall(f"apikey:{key_hash}")
+    
+    if not key_data:
+        raise HTTPException(status_code=403, detail="Invalid API key")
+    
+    return {"key_hash": key_hash, "data": key_data, "email": key_data.get("email")}
+
+
+@app.get("/v1/merchant/config", summary="Merchant: Fetch current risk profile")
+async def get_merchant_config(merchant: dict = Depends(require_merchant_key)):
+    profile = merchant["data"]
+    config = _resolve_risk_config(profile)
+    return {
+        "email": merchant["email"],
+        "risk_config": config,
+        "is_custom": _has_custom_risk_profile(profile)
+    }
+
+
+@app.post("/v1/merchant/config", summary="Merchant: Update risk profile weights")
+async def update_merchant_config(req: RiskConfigUpdateRequest, merchant: dict = Depends(require_merchant_key)):
+    key_hash = merchant["key_hash"]
+    existing_profile = merchant["data"]
+    previous_config = _resolve_risk_config(existing_profile)
+    
+    payload = req.model_dump(exclude_none=True) if hasattr(req, "model_dump") else req.dict(exclude_none=True)
+    
+    updates = {}
+    for name, value in payload.items():
+        coerced = _validate_risk_value(name, _coerce_risk_value(name, value))
+        updates[f"risk_{name}"] = str(coerced)
+
+    if updates:
+        await r.hset(f"apikey:{key_hash}", mapping=updates)
+
+    profile = await r.hgetall(f"apikey:{key_hash}")
+    new_config = _resolve_risk_config(profile)
+    await _log_risk_profile_change(merchant["email"], f"merchant:{merchant['email']}", "UPDATE", previous_config, new_config)
+    
+    return {
+        "email": merchant["email"],
+        "risk_config": new_config,
+        "is_custom": _has_custom_risk_profile(profile)
+    }
+
+
+@app.get("/v1/merchant/stats", summary="Merchant: Fetch usage and block stats")
+async def get_merchant_stats(merchant: dict = Depends(require_merchant_key)):
+    key_hash = merchant["key_hash"]
+    key_data = merchant["data"]
+    
+    month_key = f"usage:{key_hash}:{time.strftime('%Y-%m')}"
+    usage_val = await r.get(month_key)
+    usage = int(usage_val or 0)
+    
+    plan = key_data.get("plan", "starter")
+    limit = RATE_LIMITS.get(plan, RATE_LIMITS["starter"])
+    
+    # Block analytics and RTO savings
+    # In a real app we'd query the audit store for this merchant's UID.
+    # For now we simulate from the recently blocked orders if they match this merchant's UID
+    # But since we don't have a reliable way to filter recently_blocked per merchant easily without full scan,
+    # we return placeholder or aggregate if merchant email is known.
+    
+    # Implementation Note: In production we'd use merchant-specific counters in Redis.
+    total_blocks_key = f"stats:blocks:{key_hash}"
+    total_savings_key = f"stats:savings:{key_hash}"
+    
+    total_blocks = int(await r.get(total_blocks_key) or 0)
+    total_savings = int(await r.get(total_savings_key) or 0)
+    
+    return {
+        "email": merchant["email"],
+        "usage_this_month": usage,
+        "limit": limit,
+        "plan": plan,
+        "total_blocks": total_blocks,
+        "total_savings_inr": total_savings,
+        "recent_activity": [] # We could populate this from AUDIT_STORE or specialized redis list
+    }
 
 @app.get("/v1/admin/users", summary="List all registered API keys and their usage")
 async def get_all_users(_: str = Depends(require_admin)):
@@ -1952,7 +2051,8 @@ async def request_free_key(req: PublicRegisterRequest, request: Request):
         "api_key": raw_key,
         "plan": "free",
         "monthly_limit": RATE_LIMITS["free"],
-        "note": "Store this test key safely. It will not be shown again."
+        "note": "Store this test key safely. It will not be shown again.",
+        "dashboard_url": "/merchant"
     }
 
 
@@ -2461,6 +2561,11 @@ async def check_order(order: Order, key_data: dict = Depends(require_api_key)):
             pipe.sadd(f"user_uids:{key_data.get('email')}", uid)
             if is_risky:
                 pipe.incrby("total_savings_inr", risk_config["savings_per_block_inr"])
+                
+                # Merchant specific savings
+                pipe.incrby(f"stats:savings:{merchant_key_hash}", risk_config["savings_per_block_inr"])
+                pipe.incr(f"stats:blocks:{merchant_key_hash}")
+
                 status_label = "SHADOW_BLOCK" if order.shadow else "BLOCK"
                 pipe.lpush("recent_blocks", f"{uid}: {', '.join(reasons)} ({status_label}: {risk_score:.0f}) [ID: {risk_id}]")
                 pipe.ltrim("recent_blocks", 0, 49)
