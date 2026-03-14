@@ -1,6 +1,27 @@
 services:
   redis_store:
     image: redis:alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - pulse_net
+
+  postgres_audit:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=vector_pulse
+      - POSTGRES_USER=vector_pulse
+      - POSTGRES_PASSWORD=vector_pulse
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vector_pulse -d vector_pulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_audit_data:/var/lib/postgresql/data
     networks:
       - pulse_net
 
@@ -8,9 +29,17 @@ services:
     build: .
     command: uvicorn api_gateway:app --host 0.0.0.0 --port 8000
     depends_on:
-      - redis_store
+      redis_store:
+        condition: service_healthy
+      postgres_audit:
+        condition: service_healthy
     environment:
       - REDIS_HOST=redis_store
+      - REDIS_PORT=6379
+      - REDIS_SSL=false
+      - DATABASE_URL=postgresql://vector_pulse:vector_pulse@postgres_audit:5432/vector_pulse
+      - CORS_ALLOW_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+      - ADMIN_SECRET_KEY=local-dev-admin-key
     ports:
       - "8000:8000"
     networks:
@@ -19,3 +48,6 @@ services:
 networks:
   pulse_net:
     driver: bridge
+
+volumes:
+  postgres_audit_data:

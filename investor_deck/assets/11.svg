@@ -1,0 +1,54 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#08111f"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#67e8f9"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <style>
+      .eyebrow { fill:#93c5fd; font:700 18px Arial, Helvetica, sans-serif; letter-spacing:2px; }
+      .title { fill:#f8fafc; font:700 54px Arial, Helvetica, sans-serif; letter-spacing:-1px; }
+      .body { fill:#cbd5e1; font:400 20px Arial, Helvetica, sans-serif; }
+      .phase { fill:#67e8f9; font:700 18px Arial, Helvetica, sans-serif; letter-spacing:1px; }
+      .cardTitle { fill:#f8fafc; font:700 24px Arial, Helvetica, sans-serif; }
+      .cardBody { fill:#cbd5e1; font:400 18px Arial, Helvetica, sans-serif; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect x="58" y="58" width="1484" height="784" rx="30" fill="none" stroke="#22304a"/>
+  <text class="eyebrow" x="110" y="128">ROADMAP</text>
+  <text class="title" x="110" y="198">Execution roadmap</text>
+  <text class="body" x="110" y="260">The roadmap is designed to move from pilot proof to repeatable customer growth without overbuilding too early.</text>
+
+  <rect x="110" y="360" width="430" height="360" rx="28" fill="#0f1a2d" stroke="#24324d"/>
+  <text class="phase" x="146" y="406">0–3 MONTHS</text>
+  <text class="cardTitle" x="146" y="456">Prove pilots</text>
+  <text class="cardBody" x="146" y="506">• onboard first merchants</text>
+  <text class="cardBody" x="146" y="542">• tune rules manually</text>
+  <text class="cardBody" x="146" y="578">• measure false positives</text>
+  <text class="cardBody" x="146" y="614">• show initial savings</text>
+
+  <rect x="586" y="360" width="430" height="360" rx="28" fill="#0f1a2d" stroke="#24324d"/>
+  <text class="phase" x="622" y="406">3–6 MONTHS</text>
+  <text class="cardTitle" x="622" y="456">Convert and stabilize</text>
+  <text class="cardBody" x="622" y="506">• convert pilots to paid</text>
+  <text class="cardBody" x="622" y="542">• improve onboarding</text>
+  <text class="cardBody" x="622" y="578">• strengthen reporting</text>
+  <text class="cardBody" x="622" y="614">• improve reliability</text>
+
+  <rect x="1062" y="360" width="430" height="360" rx="28" fill="#0f1a2d" stroke="#24324d"/>
+  <text class="phase" x="1098" y="406">6–12 MONTHS</text>
+  <text class="cardTitle" x="1098" y="456">Repeat and scale</text>
+  <text class="cardBody" x="1098" y="506">• refine merchant playbook</text>
+  <text class="cardBody" x="1098" y="542">• improve retention loops</text>
+  <text class="cardBody" x="1098" y="578">• calibrate with outcomes</text>
+  <text class="cardBody" x="1098" y="614">• add more paying stores</text>
+
+  <rect x="110" y="760" width="1382" height="64" rx="18" fill="url(#accent)"/>
+  <text x="146" y="801" fill="#08111f" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">
+    Sequence matters: pilot proof first, repeatable onboarding second, scaling only after real merchant savings are visible.
+  </text>
+</svg>

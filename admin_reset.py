@@ -1,15 +1,19 @@
 import redis
 import os
 
-# Use the same logic to find the host
-REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+RESET_CONFIRM = os.getenv("VECTOR_PULSE_RESET_CONFIRM", "")
 r = redis.Redis(host=REDIS_HOST, port=6379, db=0)
 
 def reset():
-    print(f"♻️  Connecting to {REDIS_HOST}...")
-    # This clears all keys in the current DB
+    if RESET_CONFIRM != "DELETE_ALL_DATA":
+        raise RuntimeError(
+            "Refusing to flush Redis. Set VECTOR_PULSE_RESET_CONFIRM=DELETE_ALL_DATA to proceed."
+        )
+
+    print(f"Connecting to {REDIS_HOST}...")
     r.flushdb()
-    print("✅ System Cleaned. All blacklists and counters removed.")
+    print("Redis database flushed.")
 
 if __name__ == "__main__":
     reset()

@@ -23,8 +23,80 @@ The system evaluates transactions using **Dynamic Thresholding**:
 
 ## 🏗️ Local Deployment
 ```bash
-# Build and launch the cluster
+# Copy the example environment and adjust values if needed
+cp .env.example .env
+
+# Build and launch the cluster (API + Redis + Postgres audit store)
 docker-compose up --build
 
 # Monitor live Redis keys
 docker exec -it [redis-container-id] redis-cli KEYS *
+```
+
+The local Docker stack now starts:
+- Redis for live fraud state
+- Postgres for audit persistence
+- the API wired to both services
+
+That gives local behavior much closer to production than the old Redis-only setup.
+
+## 🧪 Local Checks
+```bash
+# Run the automated backend regression suite
+python3 -m unittest discover -s tests -p 'test_*.py'
+
+# Run the demo client against a local API
+export VECTOR_PULSE_API_KEY=vp_your_key_here
+python3 demo_client.py
+```
+
+## ⚙️ Runtime Tuning
+```bash
+# Examples: tune fraud thresholds without editing code
+export RISK_DECISION_THRESHOLD=45
+export RISK_VELOCITY_MAX_ORDERS=4
+export RISK_WEIGHT_SYBIL=30
+export RISK_SAVINGS_PER_BLOCK_INR=90
+```
+
+## 🗄️ Audit Storage
+```bash
+# Default: SQLite audit log in audit_log.db
+
+# Optional: use Postgres for audit persistence in multi-worker production
+export DATABASE_URL=postgresql://user:password@host:5432/vector_pulse
+```
+
+When `DATABASE_URL` is set, `risk_audit` and `risk_profile_audit` use Postgres. Without it, the app falls back to SQLite.
+
+## 🚢 Production Environment
+```bash
+export ADMIN_SECRET_KEY=replace_me
+export ADMIN_EMAILS=admin1@example.com,admin2@example.com
+export SESSION_COOKIE_SECURE=true
+export CORS_ALLOW_ORIGINS=https://your-admin.example.com,https://your-app.example.com
+export REDIS_HOST=your-redis-host
+export REDIS_PORT=6379
+export REDIS_PASSWORD=your-redis-password
+export REDIS_SSL=true
+export DATABASE_URL=postgresql://user:password@host:5432/vector_pulse
+export PILOT_REQUEST_WEBHOOK_URL=https://hooks.example.com/vector-pulse-leads
+```
+
+Recommended production shape:
+- Redis for live fraud state
+- Postgres for audit persistence
+- explicit `CORS_ALLOW_ORIGINS`
+- generated or managed `ADMIN_SECRET_KEY`
+- explicit `ADMIN_EMAILS`
+- secure session cookies in production
+- optional `PILOT_REQUEST_WEBHOOK_URL` for new lead notifications
+
+The `/health` endpoint now reports both Redis and audit-backend status, including whether the audit layer is using `sqlite` or `postgres`. The `/readyz` endpoint is stricter and returns `503` if Redis or the audit backend is unavailable.
+
+## 🛡️ Utility Scripts
+```bash
+# Flush Redis only when you explicitly confirm the destructive action
+export VECTOR_PULSE_RESET_CONFIRM=DELETE_ALL_DATA
+python3 admin_reset.py
+```

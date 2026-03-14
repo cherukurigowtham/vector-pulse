@@ -1,0 +1,66 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#08111f"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="warn" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fb7185"/>
+      <stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+    <style>
+      .eyebrow { fill:#93c5fd; font:700 18px Arial, Helvetica, sans-serif; letter-spacing:2px; }
+      .title { fill:#f8fafc; font:700 56px Arial, Helvetica, sans-serif; letter-spacing:-1px; }
+      .body { fill:#cbd5e1; font:400 22px Arial, Helvetica, sans-serif; }
+      .cardTitle { fill:#f8fafc; font:700 26px Arial, Helvetica, sans-serif; }
+      .cardBody { fill:#cbd5e1; font:400 18px Arial, Helvetica, sans-serif; }
+      .metric { fill:#fca5a5; font:700 16px Arial, Helvetica, sans-serif; letter-spacing:1px; }
+      .chip { fill:#0b1220; font:700 14px Arial, Helvetica, sans-serif; letter-spacing:1px; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect x="58" y="58" width="1484" height="784" rx="30" fill="none" stroke="#22304a"/>
+  <text class="eyebrow" x="110" y="128">PROBLEM</text>
+  <text class="title" x="110" y="200">COD is still driving expensive losses</text>
+  <text class="title" x="110" y="264">for D2C merchants</text>
+  <text class="body" x="110" y="328">Merchants are shipping too many COD orders without enough confidence in buyer intent,</text>
+  <text class="body" x="110" y="360">then absorbing avoidable RTO, fake-order, and manual review cost.</text>
+
+  <rect x="110" y="420" width="320" height="236" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+  <rect x="140" y="446" width="102" height="28" rx="14" fill="url(#warn)"/>
+  <text class="chip" x="166" y="465">LOSS</text>
+  <text class="cardTitle" x="140" y="522">RTO and fake orders</text>
+  <text class="cardBody" x="140" y="560">Merchants dispatch orders</text>
+  <text class="cardBody" x="140" y="586">that were never likely</text>
+  <text class="cardBody" x="140" y="612">to convert.</text>
+  <text class="metric" x="140" y="644">SHIP → RETURN → LOSS</text>
+
+  <rect x="480" y="420" width="320" height="236" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+  <rect x="510" y="446" width="102" height="28" rx="14" fill="url(#warn)"/>
+  <text class="chip" x="531" y="465">OPS</text>
+  <text class="cardTitle" x="510" y="522">Manual review fails</text>
+  <text class="cardBody" x="510" y="560">Ops teams cannot inspect</text>
+  <text class="cardBody" x="510" y="586">every risky order during</text>
+  <text class="cardBody" x="510" y="612">high-volume periods.</text>
+  <text class="metric" x="510" y="644">SPIKE → BOTTLENECK</text>
+
+  <rect x="850" y="420" width="320" height="236" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+  <rect x="880" y="446" width="102" height="28" rx="14" fill="url(#warn)"/>
+  <text class="chip" x="900" y="465">RISK</text>
+  <text class="cardTitle" x="880" y="522">Address and buyer abuse</text>
+  <text class="cardBody" x="880" y="560">Repeat abuse hides behind</text>
+  <text class="cardBody" x="880" y="586">new names, new phones,</text>
+  <text class="cardBody" x="880" y="612">same delivery patterns.</text>
+  <text class="metric" x="880" y="644">REUSE → FRAUD</text>
+
+  <rect x="1220" y="420" width="320" height="236" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+  <rect x="1250" y="446" width="102" height="28" rx="14" fill="url(#warn)"/>
+  <text class="chip" x="1265" y="465">TRADEOFF</text>
+  <text class="cardTitle" x="1250" y="522">Blanket prepaid hurts</text>
+  <text class="cardBody" x="1250" y="560">Merchants want less COD</text>
+  <text class="cardBody" x="1250" y="586">risk, but generic rules</text>
+  <text class="cardBody" x="1250" y="612">also block good buyers.</text>
+  <text class="metric" x="1250" y="644">CONTROL ≠ CONVERSION LOSS</text>
+
+  <text class="body" x="110" y="740">The core gap: merchants need to know which COD orders are risky before shipment, not after loss happens.</text>
+</svg>

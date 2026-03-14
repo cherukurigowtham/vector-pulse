@@ -20,7 +20,15 @@ COPY pyproject.toml ./
 COPY *.py ./
 
 # Install Python dependencies and build the Rust extension as a wheel
-RUN pip install --no-cache-dir maturin redis fastapi uvicorn
+RUN pip install --no-cache-dir \
+    maturin \
+    redis \
+    fastapi \
+    uvicorn \
+    httpx \
+    asyncpg \
+    aiosqlite \
+    maxminddb-geolite2
 RUN maturin build --release --out dist
 RUN pip install dist/*.whl
 

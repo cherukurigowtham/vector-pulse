@@ -1,0 +1,50 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#08111f"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#67e8f9"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <style>
+      .eyebrow { fill:#93c5fd; font:700 18px Arial, Helvetica, sans-serif; letter-spacing:2px; }
+      .title { fill:#f8fafc; font:700 54px Arial, Helvetica, sans-serif; letter-spacing:-1px; }
+      .body { fill:#cbd5e1; font:400 20px Arial, Helvetica, sans-serif; }
+      .cardTitle { fill:#f8fafc; font:700 24px Arial, Helvetica, sans-serif; }
+      .cardBody { fill:#cbd5e1; font:400 18px Arial, Helvetica, sans-serif; }
+      .mini { fill:#7dd3fc; font:700 15px Arial, Helvetica, sans-serif; letter-spacing:1px; }
+      .footer { fill:#dbeafe; font:600 22px Arial, Helvetica, sans-serif; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect x="58" y="58" width="1484" height="784" rx="30" fill="none" stroke="#22304a"/>
+  <text class="eyebrow" x="110" y="128">TARGET CUSTOMER</text>
+  <text class="title" x="110" y="198">Who we serve first</text>
+  <text class="body" x="110" y="260">The strongest early fit is a COD-heavy D2C merchant that feels RTO pain but is still small enough to move quickly.</text>
+
+  <rect x="110" y="340" width="620" height="420" rx="28" fill="#0e1626" stroke="#24324d"/>
+  <text class="mini" x="146" y="392">IDEAL CUSTOMER PROFILE</text>
+  <text class="cardTitle" x="146" y="438">Mid-size Indian D2C brands</text>
+  <text class="cardBody" x="146" y="484">• 1,000 to 20,000 monthly orders</text>
+  <text class="cardBody" x="146" y="524">• Meaningful COD share</text>
+  <text class="cardBody" x="146" y="564">• Founder-led or ops-led team</text>
+  <text class="cardBody" x="146" y="604">• Visible concern around RTO or fake orders</text>
+  <text class="cardBody" x="146" y="644">• Willing to try a managed pilot</text>
+
+  <rect x="800" y="340" width="692" height="186" rx="28" fill="#0f1a2d" stroke="#24324d"/>
+  <text class="mini" x="836" y="392">BEST FIRST VERTICALS</text>
+  <text class="cardTitle" x="836" y="438">Beauty, fashion, footwear, and accessories</text>
+  <text class="cardBody" x="836" y="478">These categories often combine high COD dependency with visible returns and margin pressure.</text>
+
+  <rect x="800" y="574" width="692" height="186" rx="28" fill="#0f1a2d" stroke="#24324d"/>
+  <text class="mini" x="836" y="626">WHO NOT TO TARGET FIRST</text>
+  <text class="cardTitle" x="836" y="672">Avoid giant enterprises at the beginning</text>
+  <text class="cardBody" x="836" y="712">Large brands move slower, require vendor approvals, and are harder to close before you have pilot proof.</text>
+
+  <rect x="110" y="786" width="1382" height="38" rx="16" fill="url(#accent)"/>
+  <text x="146" y="812" fill="#08111f" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">
+    Best first customer: a fast-moving D2C merchant that can say yes to a pilot in days, not months.
+  </text>
+</svg>

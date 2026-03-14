@@ -1,0 +1,55 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#08111f"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#67e8f9"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <style>
+      .eyebrow { fill:#93c5fd; font:700 18px Arial, Helvetica, sans-serif; letter-spacing:2px; }
+      .title { fill:#f8fafc; font:700 54px Arial, Helvetica, sans-serif; letter-spacing:-1px; }
+      .body { fill:#cbd5e1; font:400 20px Arial, Helvetica, sans-serif; }
+      .cardTitle { fill:#f8fafc; font:700 24px Arial, Helvetica, sans-serif; }
+      .cardBody { fill:#cbd5e1; font:400 18px Arial, Helvetica, sans-serif; }
+      .mini { fill:#7dd3fc; font:700 15px Arial, Helvetica, sans-serif; letter-spacing:1px; }
+      .footer { fill:#08111f; font:700 23px Arial, Helvetica, sans-serif; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect x="58" y="58" width="1484" height="784" rx="30" fill="none" stroke="#22304a"/>
+  <text class="eyebrow" x="110" y="128">TRACTION</text>
+  <text class="title" x="110" y="198">What proof looks like right now</text>
+  <text class="body" x="110" y="260">At this stage, the strongest evidence is product readiness plus the ability to move quickly into pilots and savings proof.</text>
+
+  <rect x="110" y="352" width="430" height="300" rx="28" fill="#0f1a2d" stroke="#24324d"/>
+  <text class="mini" x="146" y="400">PRODUCT READY</text>
+  <text class="cardTitle" x="146" y="448">Working product stack</text>
+  <text class="cardBody" x="146" y="494">• live API architecture</text>
+  <text class="cardBody" x="146" y="530">• admin workflow</text>
+  <text class="cardBody" x="146" y="566">• explainability and audit trail</text>
+  <text class="cardBody" x="146" y="602">• merchant-specific tuning</text>
+
+  <rect x="586" y="352" width="430" height="300" rx="28" fill="#0f1a2d" stroke="#24324d"/>
+  <text class="mini" x="622" y="400">OPS READY</text>
+  <text class="cardTitle" x="622" y="448">Deployment and testing base</text>
+  <text class="cardBody" x="622" y="494">• local production-like stack</text>
+  <text class="cardBody" x="622" y="530">• CI workflow</text>
+  <text class="cardBody" x="622" y="566">• integration and E2E scaffolding</text>
+  <text class="cardBody" x="622" y="602">• health and readiness checks</text>
+
+  <rect x="1062" y="352" width="430" height="300" rx="28" fill="#0f1a2d" stroke="#24324d"/>
+  <text class="mini" x="1098" y="400">NEXT PROOF</text>
+  <text class="cardTitle" x="1098" y="448">Merchant evidence</text>
+  <text class="cardBody" x="1098" y="494">Replace product-readiness claims with:</text>
+  <text class="cardBody" x="1098" y="530">• pilots onboarded</text>
+  <text class="cardBody" x="1098" y="566">• orders checked</text>
+  <text class="cardBody" x="1098" y="602">• savings and paid conversions</text>
+
+  <rect x="110" y="736" width="1382" height="72" rx="18" fill="url(#accent)"/>
+  <text class="footer" x="146" y="781">
+    This slide should evolve from “we are ready to onboard” into “we have proven merchant savings” as quickly as possible.
+  </text>
+</svg>

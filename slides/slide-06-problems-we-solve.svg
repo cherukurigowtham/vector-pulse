@@ -1,0 +1,86 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#08111f"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#67e8f9"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <style>
+      .eyebrow { fill:#93c5fd; font:700 18px Arial, Helvetica, sans-serif; letter-spacing:2px; }
+      .title { fill:#f8fafc; font:700 54px Arial, Helvetica, sans-serif; letter-spacing:-1px; }
+      .body { fill:#cbd5e1; font:400 20px Arial, Helvetica, sans-serif; }
+      .cardTitle { fill:#f8fafc; font:700 22px Arial, Helvetica, sans-serif; }
+      .cardBody { fill:#cbd5e1; font:400 17px Arial, Helvetica, sans-serif; }
+      .pill { fill:#0b1220; font:700 14px Arial, Helvetica, sans-serif; letter-spacing:1px; }
+      .footer { fill:#dbeafe; font:600 22px Arial, Helvetica, sans-serif; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect x="58" y="58" width="1484" height="784" rx="30" fill="none" stroke="#22304a"/>
+  <text class="eyebrow" x="110" y="128">PROBLEMS WE SOLVE</text>
+  <text class="title" x="110" y="198">The product converts COD pain into</text>
+  <text class="title" x="110" y="258">clean operational decisions</text>
+  <text class="body" x="110" y="316">Instead of asking merchants to manage fraud manually, Vector Pulse turns messy order risk into a simple workflow.</text>
+
+  <g>
+    <rect x="110" y="390" width="430" height="130" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+    <rect x="136" y="414" width="116" height="28" rx="14" fill="url(#accent)"/>
+    <text class="pill" x="165" y="433">LOSS</text>
+    <text class="cardTitle" x="136" y="474">Reduce RTO loss</text>
+    <text class="cardBody" x="136" y="506">Stop shipping COD orders that were</text>
+    <text class="cardBody" x="136" y="530">unlikely to convert in the first place.</text>
+  </g>
+
+  <g>
+    <rect x="586" y="390" width="430" height="130" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+    <rect x="612" y="414" width="116" height="28" rx="14" fill="url(#accent)"/>
+    <text class="pill" x="637" y="433">FRAUD</text>
+    <text class="cardTitle" x="612" y="474">Catch fake COD behavior</text>
+    <text class="cardBody" x="612" y="506">Detect address reuse, velocity spikes,</text>
+    <text class="cardBody" x="612" y="530">and suspicious order patterns early.</text>
+  </g>
+
+  <g>
+    <rect x="1062" y="390" width="430" height="130" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+    <rect x="1088" y="414" width="116" height="28" rx="14" fill="url(#accent)"/>
+    <text class="pill" x="1105" y="433">CONVERSION</text>
+    <text class="cardTitle" x="1088" y="474">Protect good COD demand</text>
+    <text class="cardBody" x="1088" y="506">Force prepaid only on risky orders</text>
+    <text class="cardBody" x="1088" y="530">instead of penalizing everyone.</text>
+  </g>
+
+  <g>
+    <rect x="110" y="564" width="430" height="130" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+    <rect x="136" y="588" width="116" height="28" rx="14" fill="url(#accent)"/>
+    <text class="pill" x="166" y="607">OPS</text>
+    <text class="cardTitle" x="136" y="648">Lower manual review load</text>
+    <text class="cardBody" x="136" y="680">Help ops teams focus only on orders</text>
+    <text class="cardBody" x="136" y="704">that truly need attention.</text>
+  </g>
+
+  <g>
+    <rect x="586" y="564" width="430" height="130" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+    <rect x="612" y="588" width="116" height="28" rx="14" fill="url(#accent)"/>
+    <text class="pill" x="628" y="607">TRUST</text>
+    <text class="cardTitle" x="612" y="648">Explain every flag</text>
+    <text class="cardBody" x="612" y="680">Show merchants why an order was</text>
+    <text class="cardBody" x="612" y="704">flagged instead of using a black box.</text>
+  </g>
+
+  <g>
+    <rect x="1062" y="564" width="430" height="130" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+    <rect x="1088" y="588" width="116" height="28" rx="14" fill="url(#accent)"/>
+    <text class="pill" x="1107" y="607">CONTROL</text>
+    <text class="cardTitle" x="1088" y="648">Tune per merchant</text>
+    <text class="cardBody" x="1088" y="680">Risk thresholds can be adjusted</text>
+    <text class="cardBody" x="1088" y="704">for each store’s business model.</text>
+  </g>
+
+  <rect x="110" y="758" width="1382" height="64" rx="18" fill="url(#accent)"/>
+  <text x="148" y="799" fill="#08111f" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">
+    Net effect: fewer risky shipments, faster ops decisions, and stronger margin protection.
+  </text>
+</svg>

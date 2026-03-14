@@ -1,0 +1,65 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#08111f"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#67e8f9"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <style>
+      .eyebrow { fill:#93c5fd; font:700 18px Arial, Helvetica, sans-serif; letter-spacing:2px; }
+      .title { fill:#f8fafc; font:700 54px Arial, Helvetica, sans-serif; letter-spacing:-1px; }
+      .body { fill:#cbd5e1; font:400 20px Arial, Helvetica, sans-serif; }
+      .stepNum { fill:#67e8f9; font:700 28px Arial, Helvetica, sans-serif; }
+      .stepTitle { fill:#f8fafc; font:700 22px Arial, Helvetica, sans-serif; }
+      .stepBody { fill:#cbd5e1; font:400 17px Arial, Helvetica, sans-serif; }
+      .footer { fill:#08111f; font:700 22px Arial, Helvetica, sans-serif; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect x="58" y="58" width="1484" height="784" rx="30" fill="none" stroke="#22304a"/>
+  <text class="eyebrow" x="110" y="128">GO-TO-MARKET</text>
+  <text class="title" x="110" y="198">How we get the first customers</text>
+  <text class="body" x="110" y="260">The first motion is founder-led and service-heavy: close pilots manually, prove savings, then convert into recurring contracts.</text>
+
+  <line x1="210" y1="510" x2="1388" y2="510" stroke="#2d3d5b" stroke-width="4"/>
+
+  <circle cx="210" cy="510" r="48" fill="#0f1a2d" stroke="#67e8f9" stroke-width="3"/>
+  <circle cx="505" cy="510" r="48" fill="#0f1a2d" stroke="#67e8f9" stroke-width="3"/>
+  <circle cx="800" cy="510" r="48" fill="#0f1a2d" stroke="#67e8f9" stroke-width="3"/>
+  <circle cx="1095" cy="510" r="48" fill="#0f1a2d" stroke="#67e8f9" stroke-width="3"/>
+  <circle cx="1388" cy="510" r="48" fill="#0f1a2d" stroke="#67e8f9" stroke-width="3"/>
+
+  <text class="stepNum" x="198" y="520">1</text>
+  <text class="stepNum" x="493" y="520">2</text>
+  <text class="stepNum" x="788" y="520">3</text>
+  <text class="stepNum" x="1081" y="520">4</text>
+  <text class="stepNum" x="1374" y="520">5</text>
+
+  <text class="stepTitle" x="120" y="620">Target COD-heavy merchants</text>
+  <text class="stepBody" x="120" y="650">Focus on beauty, fashion,</text>
+  <text class="stepBody" x="120" y="674">footwear, and accessories.</text>
+
+  <text class="stepTitle" x="420" y="620">Run direct outreach</text>
+  <text class="stepBody" x="420" y="650">Sell the pain clearly:</text>
+  <text class="stepBody" x="420" y="674">RTO loss and risky COD.</text>
+
+  <text class="stepTitle" x="710" y="620">Onboard as a pilot</text>
+  <text class="stepBody" x="710" y="650">Manual tuning and support</text>
+  <text class="stepBody" x="710" y="674">are part of the offer.</text>
+
+  <text class="stepTitle" x="995" y="620">Show weekly savings</text>
+  <text class="stepBody" x="995" y="650">Use merchant reports to prove</text>
+  <text class="stepBody" x="995" y="674">flag quality and ROI.</text>
+
+  <text class="stepTitle" x="1290" y="620">Convert to paid monthly</text>
+  <text class="stepBody" x="1290" y="650">Turn pilot proof into recurring</text>
+  <text class="stepBody" x="1290" y="674">revenue and retention.</text>
+
+  <rect x="110" y="760" width="1382" height="64" rx="18" fill="url(#accent)"/>
+  <text class="footer" x="148" y="801">
+    Early GTM should optimize for proof of savings, not for fully automated self-serve growth.
+  </text>
+</svg>

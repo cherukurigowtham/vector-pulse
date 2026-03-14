@@ -1,15 +1,17 @@
 import requests
 import time
 import random
+import os
 
-# Use the live production URL
-API_URL = "http://localhost:8000/v1/risk-check"
-
-# The free tier API key we just generated
-API_KEY = "vp_Esy2gTFjBdkHdC7kt-z6VS0TiQW1q03dX3Ni4-SKYus"
-HEADERS = {"X-API-Key": API_KEY}
+API_URL = os.getenv("VECTOR_PULSE_API_URL", "http://localhost:8000/v1/risk-check")
+API_KEY = os.getenv("VECTOR_PULSE_API_KEY")
 
 def simulate_orders():
+    if not API_KEY:
+        raise RuntimeError("Set VECTOR_PULSE_API_KEY before running demo_client.py")
+
+    headers = {"X-API-Key": API_KEY}
+
     # Diversified scenarios to test different parts of your Rust/Python logic
     scenarios = [
         {"uid": "user_1", "amt": 1200, "addr": "HSR Layout, Bangalore", "pin": "560102"}, # Normal
@@ -28,8 +30,7 @@ def simulate_orders():
     while True:
         scenario = random.choice(scenarios)
         try:
-            # Hit the live Render API
-            response = requests.post(API_URL, json=scenario, headers=HEADERS)
+            response = requests.post(API_URL, json=scenario, headers=headers, timeout=5)
             
             if response.status_code == 200:
                 data = response.json()

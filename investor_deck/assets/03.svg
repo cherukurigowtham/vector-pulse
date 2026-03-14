@@ -1,0 +1,53 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#08111f"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#67e8f9"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <style>
+      .eyebrow { fill:#93c5fd; font:700 18px Arial, Helvetica, sans-serif; letter-spacing:2px; }
+      .title { fill:#f8fafc; font:700 56px Arial, Helvetica, sans-serif; letter-spacing:-1px; }
+      .body { fill:#cbd5e1; font:400 21px Arial, Helvetica, sans-serif; }
+      .num { fill:#67e8f9; font:700 32px Arial, Helvetica, sans-serif; }
+      .cardTitle { fill:#f8fafc; font:700 24px Arial, Helvetica, sans-serif; }
+      .cardBody { fill:#cbd5e1; font:400 18px Arial, Helvetica, sans-serif; }
+      .footer { fill:#dbeafe; font:600 26px Arial, Helvetica, sans-serif; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="1360" cy="140" r="210" fill="#38bdf8" opacity="0.08"/>
+  <rect x="58" y="58" width="1484" height="784" rx="30" fill="none" stroke="#22304a"/>
+  <text class="eyebrow" x="110" y="128">WHY NOW</text>
+  <text class="title" x="110" y="200">The timing is right for a focused</text>
+  <text class="title" x="110" y="264">COD risk-control layer</text>
+  <text class="body" x="110" y="328">Indian D2C merchants are being pushed toward stronger unit economics, while COD still remains critical for conversion.</text>
+
+  <rect x="110" y="404" width="650" height="124" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+  <text class="num" x="150" y="468">01</text>
+  <text class="cardTitle" x="230" y="454">Margin pressure is getting sharper</text>
+  <text class="cardBody" x="230" y="488">Merchants can no longer absorb avoidable logistics loss as “just part of growth.”</text>
+
+  <rect x="110" y="554" width="650" height="124" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+  <text class="num" x="150" y="618">02</text>
+  <text class="cardTitle" x="230" y="604">COD is still too important to turn off</text>
+  <text class="cardBody" x="230" y="638">Merchants need selective control, not a blunt prepaid-only policy.</text>
+
+  <rect x="110" y="704" width="650" height="124" rx="24" fill="#0f1a2d" stroke="#24324d"/>
+  <text class="num" x="150" y="768">03</text>
+  <text class="cardTitle" x="230" y="754">Smaller brands still lack usable tooling</text>
+  <text class="cardBody" x="230" y="788">The gap is not awareness of the problem. The gap is practical order-level decisioning.</text>
+
+  <rect x="820" y="404" width="610" height="424" rx="28" fill="#0e1626" stroke="#24324d"/>
+  <rect x="856" y="446" width="198" height="36" rx="18" fill="url(#accent)"/>
+  <text x="902" y="470" fill="#0b1220" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" letter-spacing="1">MARKET THESIS</text>
+  <text class="body" x="856" y="538">The market does not need another</text>
+  <text class="body" x="856" y="572">generic fraud product.</text>
+  <text class="body" x="856" y="632">It needs a lightweight system that helps</text>
+  <text class="body" x="856" y="666">merchants answer one operational question:</text>
+  <text class="footer" x="856" y="742">“Should this COD order be allowed,</text>
+  <text class="footer" x="856" y="778">or should it be pushed to prepaid?”</text>
+</svg>
