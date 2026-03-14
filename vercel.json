@@ -2,11 +2,19 @@
   "version": 2,
   "builds": [
     {
-      "src": "landing/index.html",
+      "src": "landing/**",
       "use": "@vercel/static"
     }
   ],
   "routes": [
+    {
+      "src": "/landing/(.*)",
+      "dest": "/landing/$1"
+    },
+    {
+      "src": "/(.*\\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|css|js))",
+      "dest": "/landing/$1"
+    },
     {
       "src": "/(.*)",
       "dest": "/landing/index.html"
