@@ -527,7 +527,7 @@
       animation: slideDown 0.25s ease;
     }
     .mobile-drawer.open { display: flex; }
-    .mobile-drawer a, .mobile-drawer button {
+    .mobile-drawer a, .mobile-drawer > button {
       font-size: 18px;
       font-weight: 600;
       color: var(--text-muted);
@@ -539,9 +539,28 @@
       text-decoration: none;
       transition: color 0.2s;
     }
-    .mobile-drawer a:hover, .mobile-drawer button:hover { color: var(--text); }
-    .mobile-drawer .drawer-actions { display: flex; gap: 12px; margin-top: 8px; }
-    .mobile-drawer .drawer-actions button { font-size: 15px; }
+    .mobile-drawer a:hover, .mobile-drawer > button:hover { color: var(--text); }
+    .mobile-drawer .drawer-actions { display: flex; gap: 12px; margin-top: 16px; }
+    /* Reset overrides for actual btn elements inside drawer */
+    .mobile-drawer .drawer-actions .btn {
+      font-size: 15px;
+      padding: 12px 20px;
+      border-radius: 999px;
+      text-align: center;
+      flex: 1;
+      color: initial;
+      background: initial;
+      border: 1px solid transparent;
+    }
+    .mobile-drawer .drawer-actions .btn-secondary {
+      background: var(--card);
+      color: var(--text);
+      border-color: var(--card-border);
+    }
+    .mobile-drawer .drawer-actions .btn-primary {
+      background: var(--text);
+      color: var(--bg);
+    }
 
     @keyframes slideDown {
       from { opacity: 0; transform: translateY(-10px); }
@@ -655,8 +674,8 @@
     <a href="#pricing" onclick="closeDrawer()">Pricing</a>
     <a href="#results" onclick="closeDrawer()">Results</a>
     <div class="drawer-actions">
-      <button onclick="closeDrawer(); openModal('login')" class="btn btn-secondary">Log in</button>
-      <button onclick="closeDrawer(); openModal('signup')" class="btn btn-primary">Get Access</button>
+      <button onclick="closeDrawer(); openModal('login')" class="btn btn-secondary">Log In</button>
+      <button onclick="closeDrawer(); openModal('signup')" class="btn btn-primary">Sign Up</button>
     </div>
   </div>
 
