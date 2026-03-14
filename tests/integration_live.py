@@ -14,7 +14,7 @@ API_URL = os.getenv("VECTOR_PULSE_API_URL", "http://localhost:8000")
 ADMIN_KEY = os.getenv("ADMIN_SECRET_KEY", "local-dev-admin-key")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 async def r_client():
     client = redis.Redis(
         host=REDIS_HOST,
@@ -27,7 +27,7 @@ async def r_client():
     await client.aclose()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 async def api_client():
     async with httpx.AsyncClient(base_url=API_URL, timeout=10.0) as client:
         yield client
