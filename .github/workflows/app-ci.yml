@@ -61,6 +61,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      PYTHONPATH: .
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       REDIS_SSL: "false"
@@ -133,6 +134,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      PYTHONPATH: .
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       REDIS_SSL: "false"
