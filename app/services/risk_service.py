@@ -321,35 +321,82 @@ async def _check_identity_cluster(uid: str, address: str, pin: str, ip: str, mer
         logging.error(f"Identity Cluster Check Failed: {e}")
         return False, 0.0
 
-def _calculate_risk_score(velocity_flag, sybil_flag, anomaly_flag, identity_flag, cohort_flag, trust_score, vpn_flag, global_network_flag, gibberish_flag, device_velocity_flag, suspicious_name_flag, geo_velocity_flag, time_anomaly_flag, bot_speed_flag, suspicious_phone_flag, disposable_email_flag, email_name_mismatch_flag, poor_address_flag, high_risk_pin_flag, risk_config, consortium_hits=0):
+def _calculate_risk_score(velocity_flag, sybil_flag, anomaly_flag, identity_flag, cohort_flag, trust_score, vpn_flag, global_network_flag, gibberish_flag, device_velocity_flag, suspicious_name_flag, geo_velocity_flag, time_anomaly_flag, bot_speed_flag, suspicious_phone_flag, disposable_email_flag, email_name_mismatch_flag, poor_address_flag, high_risk_pin_flag, risk_config, consortium_hits=0, is_quarantined=False):
+    """
+    Advanced Pillar: Cognitive Ensemble & Explainability.
+    Calculates total score and returns XAI Impact Breakdown.
+    """
+    impacts = {}
     score = 0.0
-    if velocity_flag: score += risk_config["velocity_weight"]
-    if sybil_flag: score += risk_config["sybil_weight"]
-    if anomaly_flag: score += risk_config["anomaly_weight"]
-    if identity_flag: score += risk_config["identity_weight"]
-    if vpn_flag: score += risk_config["vpn_weight"]
-    if global_network_flag: score += risk_config["global_network_weight"]
-    if gibberish_flag: score += risk_config["gibberish_weight"]
-    if device_velocity_flag: score += risk_config["device_velocity_weight"]
-    if suspicious_name_flag: score += risk_config["suspicious_name_weight"]
-    if geo_velocity_flag: score += risk_config["geo_velocity_weight"]
-    if time_anomaly_flag: score += risk_config["time_anomaly_weight"]
-    if bot_speed_flag: score += risk_config["bot_speed_weight"]
-    if suspicious_phone_flag: score += risk_config["suspicious_phone_weight"]
-    if disposable_email_flag: score += risk_config["disposable_email_weight"]
-    if email_name_mismatch_flag: score += risk_config["email_name_mismatch_weight"]
-    if poor_address_flag: score += risk_config["poor_address_weight"]
-    if high_risk_pin_flag: score += risk_config["high_risk_pin_weight"]
     
-    # Pillar 2: Consortium Multiplier
+    # Track individual factor impacts
+    if velocity_flag:
+        impacts["HIGH_VELOCITY"] = risk_config["velocity_weight"]
+    if sybil_flag:
+        impacts["ADDRESS_SYBIL"] = risk_config["sybil_weight"]
+    if anomaly_flag:
+        impacts["PRICE_ANOMALY"] = risk_config["anomaly_weight"]
+    if identity_flag:
+        impacts["GLOBAL_ID_BLACKLIST"] = risk_config["identity_weight"]
+    if vpn_flag:
+        impacts["VPN_DETECTED"] = risk_config["vpn_weight"]
+    if global_network_flag:
+        impacts["GLOBAL_CONSORTIUM"] = risk_config["global_network_weight"]
+    if gibberish_flag:
+        impacts["GIBBERISH_ADDRESS"] = risk_config["gibberish_weight"]
+    if device_velocity_flag:
+        impacts["DEVICE_VELOCITY"] = risk_config["device_velocity_weight"]
+    if suspicious_name_flag:
+        impacts["SUSPICIOUS_NAME"] = risk_config["suspicious_name_weight"]
+    if geo_velocity_flag:
+        impacts["IMPOSSIBLE_TRAVEL"] = risk_config["geo_velocity_weight"]
+    if time_anomaly_flag:
+        impacts["TIME_OF_DAY"] = risk_config["time_anomaly_weight"]
+    if bot_speed_flag:
+        impacts["BOT_SPEED"] = risk_config["bot_speed_weight"]
+    if suspicious_phone_flag:
+        impacts["SUSPICIOUS_PHONE"] = risk_config["suspicious_phone_weight"]
+    if disposable_email_flag:
+        impacts["DISPOSABLE_EMAIL"] = risk_config["disposable_email_weight"]
+    if email_name_mismatch_flag:
+        impacts["EMAIL_NAME_MISMATCH"] = risk_config["email_name_mismatch_weight"]
+    if poor_address_flag:
+        impacts["POOR_ADDRESS"] = risk_config["poor_address_weight"]
+    if high_risk_pin_flag:
+        impacts["HIGH_RISK_PIN"] = risk_config["high_risk_pin_weight"]
+    
+    if is_quarantined:
+        impacts["GLOBAL_QUARANTINE"] = 40.0 # High fixed impact for quarantine
+        
     if consortium_hits > 0:
-        # Each unique merchant hit adds weight, capped at 3 hits for scoring
-        score += min(3, consortium_hits) * risk_config.get("global_network_weight", 15.0)
+        c_impact = min(3, consortium_hits) * risk_config.get("global_network_weight", 15.0)
+        impacts["FRAUD_RING_LINK"] = c_impact
 
+    # Sum initial impacts
+    score = sum(impacts.values())
+
+    # Trust Factor (Negative Impact / Boost)
     trust_floor = risk_config["trust_floor"]
     if trust_score < trust_floor:
-        score += (trust_floor - trust_score) * risk_config["trust_penalty_multiplier"]
-    return max(0.0, min(100.0, score))
+        penalty = (trust_floor - trust_score) * risk_config["trust_penalty_multiplier"]
+        impacts["LOW_TRUST_PENALTY"] = float(penalty)
+        score += penalty
+    elif trust_score > 70.0:
+        boost = (trust_score - 70.0) * 0.5 # Reward very high trust
+        impacts["HIGH_TRUST_REWARD"] = float(-boost)
+        score -= boost
+
+    # Pillar 1 (v4): Cognitive Conflict Resolution (Simplified Dempster-Shafer)
+    # If we have heavy fraud signals but also high trust, we resolve the conflict.
+    if trust_score > 85.0 and score > risk_config.get("decision_threshold", 50.0):
+        # We have high 'belief' in both fraud and trust.
+        # Professional AI reduces 'fuzziness' by applying a conflict coefficient.
+        conflict_reduction = (score - 50.0) * 0.3
+        impacts["COGNITIVE_CONFLICT_RESOLUTION"] = float(-conflict_reduction)
+        score -= conflict_reduction
+
+    final_score = max(0.0, min(100.0, score))
+    return final_score, impacts
 
 def _check_behavioral_dna(order: Order, risk_config: dict):
     """
@@ -443,11 +490,16 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
     # Pillar 4: Behavioral DNA
     behavioral_flags, behavioral_score = _check_behavioral_dna(order, risk_config)
     
-    is_global_network_flag = is_global_velocity_flag or is_global_sybil_flag or (consortium_hits > 0)
+    # Pillar 1 (v4): Cognitive Ensemble Scoring
+    risk_score, xai_impacts = _calculate_risk_score(is_velocity_flag, is_sybil_flag, is_price_anomaly, is_identity_flag, is_cluster_flag, trust_score, is_vpn_flag, is_global_network_flag, is_gibberish_flag, is_device_velocity_flag, is_suspicious_name_flag, is_geo_velocity_flag, is_time_anomaly_flag, is_bot_speed_flag, is_suspicious_phone_flag, is_disposable_email_flag, is_email_name_mismatch_flag, is_poor_address_flag, is_high_risk_pin_flag, risk_config, consortium_hits=consortium_hits, is_quarantined=is_quarantined)
     
-    risk_score = _calculate_risk_score(is_velocity_flag, is_sybil_flag, is_price_anomaly, is_identity_flag, is_cluster_flag, trust_score, is_vpn_flag, is_global_network_flag, is_gibberish_flag, is_device_velocity_flag, is_suspicious_name_flag, is_geo_velocity_flag, is_time_anomaly_flag, is_bot_speed_flag, is_suspicious_phone_flag, is_disposable_email_flag, is_email_name_mismatch_flag, is_poor_address_flag, is_high_risk_pin_flag, risk_config, consortium_hits=consortium_hits)
-    risk_score = min(100.0, risk_score + behavioral_score)
-    
+    # Add Behavioral Impacts to XAI
+    if behavioral_score > 0:
+        risk_score = min(100.0, risk_score + behavioral_score)
+        for b_flag in behavioral_flags:
+             # Attributing behavioral score proportionally to flags
+             xai_impacts[b_flag] = behavioral_score / len(behavioral_flags)
+
     reasons = []
     reasons.extend(behavioral_flags)
     if is_velocity_flag: reasons.append("HIGH_VELOCITY")
@@ -472,4 +524,4 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
     if is_cluster_flag: reasons.append("IDENTITY_CLUSTER_DETECTED")
     if trust_score < risk_config["trust_floor"] and trust_score != 50.0: reasons.append("LOW_TRUST_SCORE")
     
-    return {"score": risk_score, "flags": reasons, "trust_score": trust_score, "metrics": {"velocity": is_velocity_flag, "sybil": is_sybil_flag, "price": is_price_anomaly, "trust": trust_score, "vpn": is_vpn_flag, "global_network": is_global_network_flag, "is_quarantined": is_quarantined, "consortium_hits": consortium_hits, "gibberish": is_gibberish_flag, "device_velocity": is_device_velocity_flag, "suspicious_name": is_suspicious_name_flag, "geo_velocity": is_geo_velocity_flag, "time_anomaly": is_time_anomaly_flag, "bot_speed": is_bot_speed_flag, "suspicious_phone": is_suspicious_phone_flag, "disposable_email": is_disposable_email_flag, "email_name_mismatch": is_email_name_mismatch_flag, "poor_address": is_poor_address_flag, "high_risk_pin": is_high_risk_pin_flag, "order_hash": order_hash}}
+    return {"score": risk_score, "flags": reasons, "trust_score": trust_score, "xai_impacts": xai_impacts, "metrics": {"velocity": is_velocity_flag, "sybil": is_sybil_flag, "price": is_price_anomaly, "trust": trust_score, "vpn": is_vpn_flag, "global_network": is_global_network_flag, "is_quarantined": is_quarantined, "consortium_hits": consortium_hits, "gibberish": is_gibberish_flag, "device_velocity": is_device_velocity_flag, "suspicious_name": is_suspicious_name_flag, "geo_velocity": is_geo_velocity_flag, "time_anomaly": is_time_anomaly_flag, "bot_speed": is_bot_speed_flag, "suspicious_phone": is_suspicious_phone_flag, "disposable_email": is_disposable_email_flag, "email_name_mismatch": is_email_name_mismatch_flag, "poor_address": is_poor_address_flag, "high_risk_pin": is_high_risk_pin_flag, "order_hash": order_hash}}

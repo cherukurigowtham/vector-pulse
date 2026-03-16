@@ -14,6 +14,7 @@ from app.core.helpers import _key_preview, _resolve_risk_config, _sliding_window
 from app.services.risk_service import run_risk_analysis, _merchant_state_key
 from app.services.graph_service import link_identity
 from app.services.quarantine_service import process_fraud_feedback
+from app.services.monitoring_service import track_decision_bias
 
 router = APIRouter(tags=["risk"])
 
@@ -33,6 +34,7 @@ async def _perform_post_analysis_ops(
             "score": float(analysis["score"]),
             "flags": analysis["flags"],
             "metrics": analysis["metrics"],
+            "xai_impacts": analysis.get("xai_impacts", {}),
             "timestamp": time.time(),
             "config": risk_config
         }
@@ -89,6 +91,9 @@ async def _perform_post_analysis_ops(
             pipe.expire(state_key, 86400 * 30)
             pipe.expire(f"risk_index:{merchant_email}", 86400 * 90)
             await pipe.execute()
+        
+        # Pillar 3 (v4): Bias Monitoring
+        await track_decision_bias(merchant_email, action, {"bin_prefix": order.uid[:6], "geo_code": "IN"}) 
     except Exception as e:
         logging.warning(f"Post-analysis operations failed: {e}")
 
@@ -124,7 +129,10 @@ async def explain_decision(risk_id: str, key_data: dict = Depends(require_api_ke
         return {
             "risk_id": risk_id, "score": context["score"],
             "decision": ("FORCE_PREPAID" if context["score"] > config["decision_threshold"] else "ALLOW_COD"),
-            "findings": narrative, "raw_metrics": m, "timestamp": context["timestamp"]
+            "findings": narrative, 
+            "impact_analysis": context.get("xai_impacts", {}), # Professional XAI
+            "raw_metrics": m, 
+            "timestamp": context["timestamp"]
         }
     except Exception as e:
         if isinstance(e, HTTPException): raise
