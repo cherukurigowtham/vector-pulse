@@ -13,6 +13,7 @@ from app.core.security import require_api_key, require_api_key_or_admin
 from app.core.helpers import _key_preview, _resolve_risk_config, _sliding_window_rate_limit, _log_event
 from app.services.risk_service import run_risk_analysis, _merchant_state_key
 from app.services.graph_service import link_identity
+from app.services.quarantine_service import process_fraud_feedback
 
 router = APIRouter(tags=["risk"])
 
@@ -219,10 +220,20 @@ async def update_outcome(update: OutcomeUpdate, bg: BackgroundTasks, key_data: d
             update.status,
             reason=update.reason
         )
-        # Pillar 1: Trigger Neural Feedback Loop
-        bg.add_task(_apply_neural_feedback, update.risk_id, update.status, key_data.get("email"))
+        # Pillar 1 & 2: Autonomous Intelligence Loop
+        merchant_email = key_data.get("email")
+        bg.add_task(_apply_neural_feedback, update.risk_id, update.status, merchant_email)
         
-        _log_event("outcome_updated", risk_id=update.risk_id, status=update.status, merchant=key_data.get("email"))
+        if update.status == "FRAUD_CONFIRMED":
+            # Extract order_hash from the explain context if possible
+            raw_context = await r.get(f"explain:{update.risk_id}")
+            if raw_context:
+                context = json.loads(raw_context)
+                order_hash = context.get("metrics", {}).get("order_hash")
+                if order_hash:
+                    bg.add_task(process_fraud_feedback, order_hash, merchant_email)
+        
+        _log_event("outcome_updated", risk_id=update.risk_id, status=update.status, merchant=merchant_email)
         return {"status": "success", "risk_id": update.risk_id, "updated_to": update.status}
     except Exception as e:
         logging.error(f"Outcome update failed for {update.risk_id}: {e}")

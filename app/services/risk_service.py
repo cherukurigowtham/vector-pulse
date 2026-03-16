@@ -11,6 +11,7 @@ from app.core.redis import r
 from app.core.geoip import GEO_READER
 from app.db.database import AUDIT_STORE
 from app.services.graph_service import link_identity
+from app.services.vector_service import generate_semantic_hash, check_vector_cluster
 
 async def _log_audit_event(risk_id: str, email: str, context: dict, decision: str, shadow: bool):
     try:
@@ -368,11 +369,20 @@ def _check_behavioral_dna(order: Order, risk_config: dict):
         if order.mouse_movement_entropy < 1.0:
             flags.append("BOT_LIKE_MOUSE_MOVEMENT")
             score += risk_config.get("bot_speed_weight", 15.0)
+        # Pillar 3: Robotic Consistency (Too Perfect)
+        elif order.mouse_movement_entropy > 4.5: # Extremely high, perfect entropy
+             flags.append("ROBOTIC_CONSISTENCY")
+             score += risk_config.get("bot_speed_weight", 10.0)
             
     return flags, score
 
 async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: str, merchant_email: str):
     uid, amount, address, client_ip = order.uid, order.amt, order.addr, order.ip
+    
+    # Pillar 1 & 2: Vector Intelligence
+    order_hash = generate_semantic_hash(address, order.name, order.email)
+    quarantine_task = check_vector_cluster(order_hash)
+    
     velocity_task = _check_velocity(uid, risk_config, merchant_key_hash)
     sybil_task = _check_sybil(uid, address, risk_config, merchant_key_hash, merchant_email)
     price_task = _check_price_anomaly(uid, amount, risk_config, merchant_key_hash)
@@ -418,16 +428,18 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
         velocity_task, sybil_task, price_task, trust_task, ip_task, 
         global_velocity_task, global_sybil_task, device_velocity_task, 
         geo_velocity_task, high_risk_pin_task, is_disposable_email_task,
-        identity_cache_task, identity_cluster_task, graph_task
+        identity_cache_task, identity_cluster_task, graph_task, quarantine_task
     )
     (
         is_velocity_flag, is_sybil_flag, (is_price_anomaly, avg, std_dev), 
         trust_score, is_vpn_flag, is_global_velocity_flag, is_global_sybil_flag, 
         is_device_velocity_flag, is_geo_velocity_flag, is_high_risk_pin_flag, 
         is_disposable_email_flag, is_identity_flag, (is_cluster_flag, cluster_score),
-        consortium_hits
+        consortium_hits, is_quarantined
     ) = results
     
+    is_global_network_flag = is_global_velocity_flag or is_global_sybil_flag or (consortium_hits > 0) or is_quarantined
+
     # Pillar 4: Behavioral DNA
     behavioral_flags, behavioral_score = _check_behavioral_dna(order, risk_config)
     
@@ -444,6 +456,7 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
     if is_vpn_flag: reasons.append("ANONYMOUS_IP_DETECTED")
     if is_identity_flag: reasons.append("GLOBAL_IDENTITY_BLACKLIST")
     if is_global_network_flag: reasons.append("GLOBAL_CONSORTIUM_BLOCK")
+    if is_quarantined: reasons.append("GLOBAL_QUARANTINE_TRIGGERED")
     if consortium_hits > 0: reasons.append(f"CROSS_MERCHANT_FRAUD_RING_DETECTED({consortium_hits})")
     if is_gibberish_flag: reasons.append("GIBBERISH_ADDRESS")
     if is_device_velocity_flag: reasons.append("DEVICE_FINGERPRINT_VELOCITY")
@@ -459,4 +472,4 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
     if is_cluster_flag: reasons.append("IDENTITY_CLUSTER_DETECTED")
     if trust_score < risk_config["trust_floor"] and trust_score != 50.0: reasons.append("LOW_TRUST_SCORE")
     
-    return {"score": risk_score, "flags": reasons, "trust_score": trust_score, "metrics": {"velocity": is_velocity_flag, "sybil": is_sybil_flag, "price": is_price_anomaly, "trust": trust_score, "vpn": is_vpn_flag, "global_network": is_global_network_flag, "consortium_hits": consortium_hits, "gibberish": is_gibberish_flag, "device_velocity": is_device_velocity_flag, "suspicious_name": is_suspicious_name_flag, "geo_velocity": is_geo_velocity_flag, "time_anomaly": is_time_anomaly_flag, "bot_speed": is_bot_speed_flag, "suspicious_phone": is_suspicious_phone_flag, "disposable_email": is_disposable_email_flag, "email_name_mismatch": is_email_name_mismatch_flag, "poor_address": is_poor_address_flag, "high_risk_pin": is_high_risk_pin_flag}}
+    return {"score": risk_score, "flags": reasons, "trust_score": trust_score, "metrics": {"velocity": is_velocity_flag, "sybil": is_sybil_flag, "price": is_price_anomaly, "trust": trust_score, "vpn": is_vpn_flag, "global_network": is_global_network_flag, "is_quarantined": is_quarantined, "consortium_hits": consortium_hits, "gibberish": is_gibberish_flag, "device_velocity": is_device_velocity_flag, "suspicious_name": is_suspicious_name_flag, "geo_velocity": is_geo_velocity_flag, "time_anomaly": is_time_anomaly_flag, "bot_speed": is_bot_speed_flag, "suspicious_phone": is_suspicious_phone_flag, "disposable_email": is_disposable_email_flag, "email_name_mismatch": is_email_name_mismatch_flag, "poor_address": is_poor_address_flag, "high_risk_pin": is_high_risk_pin_flag, "order_hash": order_hash}}
