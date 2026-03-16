@@ -10,6 +10,7 @@ from app.models import Order
 from app.core.redis import r
 from app.core.geoip import GEO_READER
 from app.db.database import AUDIT_STORE
+from app.services.graph_service import link_identity
 
 async def _log_audit_event(risk_id: str, email: str, context: dict, decision: str, shadow: bool):
     try:
@@ -319,7 +320,7 @@ async def _check_identity_cluster(uid: str, address: str, pin: str, ip: str, mer
         logging.error(f"Identity Cluster Check Failed: {e}")
         return False, 0.0
 
-def _calculate_risk_score(velocity_flag, sybil_flag, anomaly_flag, identity_flag, cohort_flag, trust_score, vpn_flag, global_network_flag, gibberish_flag, device_velocity_flag, suspicious_name_flag, geo_velocity_flag, time_anomaly_flag, bot_speed_flag, suspicious_phone_flag, disposable_email_flag, email_name_mismatch_flag, poor_address_flag, high_risk_pin_flag, risk_config):
+def _calculate_risk_score(velocity_flag, sybil_flag, anomaly_flag, identity_flag, cohort_flag, trust_score, vpn_flag, global_network_flag, gibberish_flag, device_velocity_flag, suspicious_name_flag, geo_velocity_flag, time_anomaly_flag, bot_speed_flag, suspicious_phone_flag, disposable_email_flag, email_name_mismatch_flag, poor_address_flag, high_risk_pin_flag, risk_config, consortium_hits=0):
     score = 0.0
     if velocity_flag: score += risk_config["velocity_weight"]
     if sybil_flag: score += risk_config["sybil_weight"]
@@ -338,10 +339,37 @@ def _calculate_risk_score(velocity_flag, sybil_flag, anomaly_flag, identity_flag
     if email_name_mismatch_flag: score += risk_config["email_name_mismatch_weight"]
     if poor_address_flag: score += risk_config["poor_address_weight"]
     if high_risk_pin_flag: score += risk_config["high_risk_pin_weight"]
+    
+    # Pillar 2: Consortium Multiplier
+    if consortium_hits > 0:
+        # Each unique merchant hit adds weight, capped at 3 hits for scoring
+        score += min(3, consortium_hits) * risk_config.get("global_network_weight", 15.0)
+
     trust_floor = risk_config["trust_floor"]
     if trust_score < trust_floor:
         score += (trust_floor - trust_score) * risk_config["trust_penalty_multiplier"]
     return max(0.0, min(100.0, score))
+
+def _check_behavioral_dna(order: Order, risk_config: dict):
+    """
+    Advanced Pillar: Behavioral DNA.
+    Analyzes keystroke velocity and mouse entropy.
+    Humans have higher entropy and medium velocity. Bots have zero velocity or zero entropy.
+    """
+    flags = []
+    score = 0
+    
+    if order.keystroke_velocity is not None:
+        if order.keystroke_velocity < 10 or order.keystroke_velocity > 500:
+            flags.append("UNNATURAL_KEYSTROKE_VELOCITY")
+            score += risk_config.get("bot_speed_weight", 10.0)
+            
+    if order.mouse_movement_entropy is not None:
+        if order.mouse_movement_entropy < 1.0:
+            flags.append("BOT_LIKE_MOUSE_MOVEMENT")
+            score += risk_config.get("bot_speed_weight", 15.0)
+            
+    return flags, score
 
 async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: str, merchant_email: str):
     uid, amount, address, client_ip = order.uid, order.amt, order.addr, order.ip
@@ -383,29 +411,40 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
     identity_cache_task = _check_identity_cache(order.email, order.phone)
     identity_cluster_task = _check_identity_cluster(uid, address, order.pin, client_ip, merchant_key_hash)
     
+    # Pillar 2: Graph Analysis
+    graph_task = link_identity(uid, order.email, order.phone, address, client_ip, merchant_email)
+    
     results = await asyncio.gather(
         velocity_task, sybil_task, price_task, trust_task, ip_task, 
         global_velocity_task, global_sybil_task, device_velocity_task, 
         geo_velocity_task, high_risk_pin_task, is_disposable_email_task,
-        identity_cache_task, identity_cluster_task
+        identity_cache_task, identity_cluster_task, graph_task
     )
     (
         is_velocity_flag, is_sybil_flag, (is_price_anomaly, avg, std_dev), 
         trust_score, is_vpn_flag, is_global_velocity_flag, is_global_sybil_flag, 
         is_device_velocity_flag, is_geo_velocity_flag, is_high_risk_pin_flag, 
-        is_disposable_email_flag, is_identity_flag, (is_cluster_flag, cluster_score)
+        is_disposable_email_flag, is_identity_flag, (is_cluster_flag, cluster_score),
+        consortium_hits
     ) = results
-    is_global_network_flag = is_global_velocity_flag or is_global_sybil_flag
     
-    risk_score = _calculate_risk_score(is_velocity_flag, is_sybil_flag, is_price_anomaly, is_identity_flag, is_cluster_flag, trust_score, is_vpn_flag, is_global_network_flag, is_gibberish_flag, is_device_velocity_flag, is_suspicious_name_flag, is_geo_velocity_flag, is_time_anomaly_flag, is_bot_speed_flag, is_suspicious_phone_flag, is_disposable_email_flag, is_email_name_mismatch_flag, is_poor_address_flag, is_high_risk_pin_flag, risk_config)
+    # Pillar 4: Behavioral DNA
+    behavioral_flags, behavioral_score = _check_behavioral_dna(order, risk_config)
+    
+    is_global_network_flag = is_global_velocity_flag or is_global_sybil_flag or (consortium_hits > 0)
+    
+    risk_score = _calculate_risk_score(is_velocity_flag, is_sybil_flag, is_price_anomaly, is_identity_flag, is_cluster_flag, trust_score, is_vpn_flag, is_global_network_flag, is_gibberish_flag, is_device_velocity_flag, is_suspicious_name_flag, is_geo_velocity_flag, is_time_anomaly_flag, is_bot_speed_flag, is_suspicious_phone_flag, is_disposable_email_flag, is_email_name_mismatch_flag, is_poor_address_flag, is_high_risk_pin_flag, risk_config, consortium_hits=consortium_hits)
+    risk_score = min(100.0, risk_score + behavioral_score)
     
     reasons = []
+    reasons.extend(behavioral_flags)
     if is_velocity_flag: reasons.append("HIGH_VELOCITY")
     if is_sybil_flag: reasons.append("ADDRESS_SYBIL_DETECTED")
     if is_price_anomaly: reasons.append("HIGH_DEVIATION")
     if is_vpn_flag: reasons.append("ANONYMOUS_IP_DETECTED")
     if is_identity_flag: reasons.append("GLOBAL_IDENTITY_BLACKLIST")
     if is_global_network_flag: reasons.append("GLOBAL_CONSORTIUM_BLOCK")
+    if consortium_hits > 0: reasons.append(f"CROSS_MERCHANT_FRAUD_RING_DETECTED({consortium_hits})")
     if is_gibberish_flag: reasons.append("GIBBERISH_ADDRESS")
     if is_device_velocity_flag: reasons.append("DEVICE_FINGERPRINT_VELOCITY")
     if is_suspicious_name_flag: reasons.append("SUSPICIOUS_NAME")
@@ -420,4 +459,4 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
     if is_cluster_flag: reasons.append("IDENTITY_CLUSTER_DETECTED")
     if trust_score < risk_config["trust_floor"] and trust_score != 50.0: reasons.append("LOW_TRUST_SCORE")
     
-    return {"score": risk_score, "flags": reasons, "trust_score": trust_score, "metrics": {"velocity": is_velocity_flag, "sybil": is_sybil_flag, "price": is_price_anomaly, "trust": trust_score, "vpn": is_vpn_flag, "global_network": is_global_network_flag, "gibberish": is_gibberish_flag, "device_velocity": is_device_velocity_flag, "suspicious_name": is_suspicious_name_flag, "geo_velocity": is_geo_velocity_flag, "time_anomaly": is_time_anomaly_flag, "bot_speed": is_bot_speed_flag, "suspicious_phone": is_suspicious_phone_flag, "disposable_email": is_disposable_email_flag, "email_name_mismatch": is_email_name_mismatch_flag, "poor_address": is_poor_address_flag, "high_risk_pin": is_high_risk_pin_flag}}
+    return {"score": risk_score, "flags": reasons, "trust_score": trust_score, "metrics": {"velocity": is_velocity_flag, "sybil": is_sybil_flag, "price": is_price_anomaly, "trust": trust_score, "vpn": is_vpn_flag, "global_network": is_global_network_flag, "consortium_hits": consortium_hits, "gibberish": is_gibberish_flag, "device_velocity": is_device_velocity_flag, "suspicious_name": is_suspicious_name_flag, "geo_velocity": is_geo_velocity_flag, "time_anomaly": is_time_anomaly_flag, "bot_speed": is_bot_speed_flag, "suspicious_phone": is_suspicious_phone_flag, "disposable_email": is_disposable_email_flag, "email_name_mismatch": is_email_name_mismatch_flag, "poor_address": is_poor_address_flag, "high_risk_pin": is_high_risk_pin_flag}}

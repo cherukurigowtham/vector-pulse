@@ -74,20 +74,44 @@ def _key_preview(prefix: str | None, suffix: str | None) -> str:
         return f"{prefix}...{suffix}"
     return "unknown"
 
-def _resolve_risk_config(key_data: dict) -> dict:
+async def _resolve_risk_config(key_data: dict) -> dict:
+    """
+    Resolves the risk configuration by combining:
+    1. Global defaults
+    2. Merchant-specific overrides (from API Key)
+    3. Neural biases (learned from merchant-specific feedback)
+    """
     config = dict(RISK_CONFIG)
+    email = key_data.get("email")
+    
+    # 1. Apply Merchant Overrides
     for name in RISK_CONFIG:
         val = key_data.get(f"risk_{name}")
         if val is not None:
             try:
                 coerced = RISK_CONFIG_TYPES[name](val)
-                # Strict Bound Checking
-                if name in RISK_CONFIG_BOUNDS:
-                    low, high = RISK_CONFIG_BOUNDS[name]
-                    coerced = max(low, min(high, coerced))
                 config[name] = coerced
             except (ValueError, TypeError):
                 pass
+                
+    # 2. Apply Neural Biases (Learned Behavior)
+    if email:
+        try:
+            biases = await r.hgetall(f"neural:bias:{email}")
+            if biases:
+                for name, bias_val in biases.items():
+                    if name in config:
+                        # Add the bias to the weight
+                        config[name] += float(bias_val)
+        except Exception as e:
+            logging.warning(f"Failed to apply neural biases for {email}: {e}")
+
+    # 3. Final Bound Checking
+    for name in config:
+        if name in RISK_CONFIG_BOUNDS:
+            low, high = RISK_CONFIG_BOUNDS[name]
+            config[name] = max(low, min(high, config[name]))
+            
     return config
 
 def _has_custom_risk_profile(key_data: dict) -> bool:

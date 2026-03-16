@@ -13,6 +13,9 @@ class Order(BaseModel):
     ip: str = Field("127.0.0.1", pattern=r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}$")
     device_hash: str | None = Field(None, min_length=16, max_length=128)
     checkout_time_secs: float | None = Field(None, ge=0)
+    # Behavioral DNA Fields
+    keystroke_velocity: float | None = Field(None, ge=0)
+    mouse_movement_entropy: float | None = Field(None, ge=0)
     shadow: bool = False
 
     @field_validator("uid", "addr", "name", "email", "phone", "ip", "device_hash", mode="before")

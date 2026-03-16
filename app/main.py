@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import ENVIRONMENT, CORS_ALLOW_ORIGINS, DATABASE_URL, AUDIT_DB
 from app.db.database import AUDIT_STORE
 from app.core.helpers import _log_event, PRIMARY_ADMIN_EMAIL, ADMIN_EMAILS
-from app.routers import risk, admin, merchant, public
+from app.routers import risk, admin, merchant, public, webhooks
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -103,6 +103,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Include Routers
 app.include_router(public.router)
+app.include_router(webhooks.router)
 app.include_router(risk.router)
 app.include_router(admin.router)
 app.include_router(merchant.router)

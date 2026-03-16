@@ -12,6 +12,7 @@ from app.db.database import AUDIT_STORE
 from app.core.security import require_api_key, require_api_key_or_admin
 from app.core.helpers import _key_preview, _resolve_risk_config, _sliding_window_rate_limit, _log_event
 from app.services.risk_service import run_risk_analysis, _merchant_state_key
+from app.services.graph_service import link_identity
 
 router = APIRouter(tags=["risk"])
 
@@ -132,7 +133,7 @@ async def explain_decision(risk_id: str, key_data: dict = Depends(require_api_ke
 @router.post("/v1/risk-check", summary="Evaluate an order for fraud risk")
 async def check_order(order: Order, bg: BackgroundTasks, key_data: dict = Depends(require_api_key)):
     start_time = time.perf_counter()
-    risk_config = _resolve_risk_config(key_data)
+    risk_config = await _resolve_risk_config(key_data)
     merchant_key_hash = key_data.get("key_hash")
     merchant_email = key_data.get("email")
     plan = key_data.get("data", {}).get("plan", "free")
@@ -173,25 +174,54 @@ async def check_order(order: Order, bg: BackgroundTasks, key_data: dict = Depend
         "risk_score": round(float(risk_score), 1), "risk_factors": analysis["flags"], "latency_ms": f"{latency:.2f}ms",
     }
 
-    latency = (time.perf_counter() - start_time) * 1000
-    return {
-        "uid": order.uid,
-        "risk_id": risk_id,
-        "decision": action,
-        "shadow_mode": order.shadow,
-        "risk_score": round(float(risk_score), 1),
-        "risk_factors": reasons,
-        "latency_ms": f"{latency:.2f}ms",
-    }
+async def _apply_neural_feedback(risk_id: str, status: str, merchant_email: str):
+    """
+    Advanced Pillar: Neural Weighting Engine. 
+    Analyzes the 'explain' context of a risk decision and adjusts merchant-specific biases.
+    """
+    try:
+        raw_context = await r.get(f"explain:{risk_id}")
+        if not raw_context:
+            return # Context expired or missing
+            
+        context = json.loads(raw_context)
+        flags = context.get("flags", [])
+        score = context.get("score", 0)
+        
+        # Logic: 
+        # If DELIVERED but Score was High -> Weights are too AGGRESSIVE (Bias -1)
+        # If RTO/FRAUD but Score was Low -> Weights are too LENIENT (Bias +1)
+        
+        bias_bucket = f"neural:bias:{merchant_email}"
+        adjustment = 0
+        if status == "DELIVERED" and score > 40: # threshold from config
+            adjustment = -0.5 # Subtly decrease weights
+        elif status in ["RTO", "FRAUD_CONFIRMED"] and score < 40:
+            adjustment = 1.0 # Aggressively increase weights
+            
+        if adjustment != 0:
+            async with r.pipeline() as pipe:
+                for flag in flags:
+                    # Map flags to config weights (e.g., HIGH_VELOCITY -> velocity)
+                    weight_key = flag.lower().replace("_flag", "").replace("_detected", "").replace("high_", "")
+                    if weight_key in RISK_CONFIG:
+                        pipe.hincrbyfloat(bias_bucket, weight_key, adjustment)
+                await pipe.execute()
+                pipe.expire(bias_bucket, 86400 * 90)
+    except Exception as e:
+        logging.warning(f"Neural profiling failed for {risk_id}: {e}")
 
 @router.post("/v1/outcome", summary="Report the final outcome of a transaction (ML Feedback Loop)")
-async def update_outcome(update: OutcomeUpdate, key_data: dict = Depends(require_api_key)):
+async def update_outcome(update: OutcomeUpdate, bg: BackgroundTasks, key_data: dict = Depends(require_api_key)):
     try:
         await AUDIT_STORE.update_outcome(
             update.risk_id, 
             update.status,
             reason=update.reason
         )
+        # Pillar 1: Trigger Neural Feedback Loop
+        bg.add_task(_apply_neural_feedback, update.risk_id, update.status, key_data.get("email"))
+        
         _log_event("outcome_updated", risk_id=update.risk_id, status=update.status, merchant=key_data.get("email"))
         return {"status": "success", "risk_id": update.risk_id, "updated_to": update.status}
     except Exception as e:
