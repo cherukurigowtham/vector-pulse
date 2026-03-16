@@ -19,3 +19,7 @@ services:
         generateValue: true  # Render auto-generates a secure random value
       - key: CORS_ALLOW_ORIGINS
         sync: false          # Comma-separated frontend origins allowed to call the API
+      - key: RISK_FAIL_CLOSED
+        value: "true"
+      - key: SESSION_COOKIE_SECURE
+        value: "true"

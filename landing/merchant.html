@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Merchant Portal | Vector Pulse</title>
+    <title>Merchant Portal | Vantix</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
@@ -13,8 +13,10 @@
             --surface-hover: #111111;
             --border: rgba(255, 255, 255, 0.08);
             --border-active: rgba(255, 255, 255, 0.2);
-            --accent: #3b82f6;
-            --accent-muted: rgba(59, 130, 246, 0.1);
+            --accent: #14b8a6;
+            --blue: #3b82f6;
+            --accent-glow: rgba(20, 184, 166, 0.3);
+            --accent-muted: rgba(20, 184, 166, 0.1);
             --text: #ffffff;
             --text-muted: #a1a1aa;
             --danger: #ef4444;
@@ -63,8 +65,8 @@
         /* dashboard layout */
         #mainApp { display: none; padding: 30px; max-width: 1400px; margin: 0 auto; }
         .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
-        .brand { font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
-        .brand-dot { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 10px var(--accent); }
+        .brand { font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 12px; color: var(--text); text-decoration: none; }
+        .brand-logo { width: 32px; height: 32px; object-fit: cover; border-radius: 8px; box-shadow: 0 0 15px var(--accent-glow); }
         .user-chip { background: var(--surface); border: 1px solid var(--border); padding: 8px 16px; border-radius: 99px; font-size: 13px; display: flex; align-items: center; gap: 10px; }
         .logout-btn { cursor: pointer; color: var(--danger); font-weight: 600; }
 
@@ -130,8 +132,20 @@
             position: fixed; top: 20px; right: 20px; background: var(--surface);
             border: 1px solid var(--accent); padding: 12px 24px; border-radius: 12px;
             font-size: 14px; transform: translateX(200%); transition: transform 0.3s;
+            z-index: 2000;
         }
         #toast.active { transform: translateX(0); }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid { grid-template-columns: 1fr 1fr; }
+            .main-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 640px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+            .nav { flex-direction: column; gap: 20px; align-items: flex-start; }
+            .nav > div { width: 100%; justify-content: space-between; }
+            .btn-small { font-size: 11px; padding: 6px 12px; }
+        }
     </style>
 </head>
 <body>
@@ -153,14 +167,17 @@
     <!-- Main App -->
     <div id="mainApp">
         <header class="nav">
-            <div class="brand">
-                <div class="brand-dot"></div>
-                VECTOR PULSE
-            </div>
-            <div class="user-chip">
-                <span id="merchantEmail">...</span>
-                <span style="color:var(--border)">|</span>
-                <span class="logout-btn" onclick="logout()">Logout</span>
+            <a href="/" class="brand">
+                <img src="vantix_logo.png" alt="Vantix" class="brand-logo">
+                Vantix
+            </a>
+            <div style="display:flex; align-items:center; gap:15px;">
+                <button class="btn btn-small" style="background:var(--surface); color:var(--text); border:1px solid var(--border);" onclick="exportData()">Export Scans (CSV)</button>
+                <div class="user-chip">
+                    <span id="merchantEmail">...</span>
+                    <span style="color:var(--border)">|</span>
+                    <span class="logout-btn" onclick="logout()">Logout</span>
+                </div>
             </div>
         </header>
 
@@ -282,6 +299,23 @@
                     </div>
                 </div>
 
+                <div class="card" style="border-color:var(--accent); background:var(--accent-muted);">
+                    <div class="card-header">
+                        <div class="card-title" style="color:var(--accent)">Rule Simulator</div>
+                    </div>
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Test how current rules handle a hypothetical order.</p>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <input type="text" id="sim_email" placeholder="Customer Email" style="font-size:13px;">
+                        <input type="text" id="sim_addr" placeholder="Shipping Address" style="font-size:13px;">
+                        <button class="btn btn-small" style="background:var(--accent); color:#fff;" onclick="runSimulation()">Run Test</button>
+                    </div>
+                    <div id="simResult" style="margin-top:15px; display:none; padding:12px; border-radius:10px; background:rgba(0,0,0,0.3); font-size:12px;">
+                        <div id="simStatus" style="font-weight:700; margin-bottom:5px;"></div>
+                        <div id="simScore" style="color:var(--text-muted); margin-bottom:8px;"></div>
+                        <div id="simFlags" style="color:var(--text-muted); font-size:11px;"></div>
+                    </div>
+                </div>
+
                 <div class="card">
                     <div class="card-header">
                         <div class="card-title">Credentials</div>
@@ -307,6 +341,13 @@
     <script>
         let currentApiKey = '';
         let configChart;
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return '';
+        }
 
         function updateVal(id, val) {
             document.getElementById(id).textContent = val;
@@ -413,7 +454,8 @@
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        'X-API-Key': currentApiKey 
+                        'X-API-Key': currentApiKey,
+                        'X-CSRF-Token': getCookie('vp_csrf')
                     },
                     body: JSON.stringify(payload)
                 });
@@ -431,6 +473,79 @@
 
         function logout() {
             window.location.reload();
+        }
+
+        async function runSimulation() {
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = 'Simulating...';
+            btn.disabled = true;
+
+            const payload = {
+                uid: 'sim_' + Date.now(),
+                amt: 5000,
+                email: document.getElementById('sim_email').value || 'test@example.com',
+                addr: document.getElementById('sim_addr').value || 'No 45, High Risk Lane, City',
+                ip: '1.2.3.4',
+                pin: '560001',
+                device_hash: 'sim_device',
+                checkout_time_secs: 1.5
+            };
+
+            try {
+                const res = await fetch('/v1/merchant/simulate', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-API-Key': currentApiKey,
+                        'X-CSRF-Token': getCookie('vp_csrf')
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                
+                const box = document.getElementById('simResult');
+                const stat = document.getElementById('simStatus');
+                const score = document.getElementById('simScore');
+                const flags = document.getElementById('simFlags');
+
+                box.style.display = 'block';
+                stat.textContent = data.decision === 'ALLOW_COD' ? '✓ ORDER ALLOWED' : '⚠ ORDER BLOCKED';
+                stat.style.color = data.decision === 'ALLOW_COD' ? 'var(--success)' : 'var(--danger)';
+                score.textContent = `Risk Score: ${data.risk_score.toFixed(1)} / Threshold: ${document.getElementById('threshold_range').value}`;
+                flags.textContent = data.risk_factors.length ? 'Flags: ' + data.risk_factors.join(', ') : 'No risk factors detected.';
+
+            } catch (e) {
+                showToast('Simulation failed.');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function exportData() {
+            const btn = event.target;
+            btn.textContent = 'Exporting...';
+            
+            try {
+                const response = await fetch('/v1/merchant/export', {
+                    headers: { 'X-API-Key': currentApiKey }
+                });
+                if (!response.ok) throw new Error();
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `vector_pulse_export_${Date.now()}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } catch (e) {
+                showToast('Export failed.');
+            } finally {
+                btn.textContent = 'Export Scans (CSV)';
+            }
         }
 
         function initChart() {

@@ -15,6 +15,7 @@ The system evaluates transactions using **Dynamic Thresholding**:
 1.  **Statistical Outliers**: Calculates the Moving Average and Standard Deviation ($\sigma$) to determine the $Z$-Score.
     $$Z = \frac{|x - \mu|}{\sigma}$$
 2.  **Temporal Velocity**: Detects bot-like behavior by measuring the time-delta between incoming requests.
+3.  **Salted Hashing**: API keys are hashed using PBKDF2 with unique salts, protecting against rainbow table attacks.
 
 ## 🛠️ Tech Stack
 * **Language**: Rust (Performance), Python (Logic)
@@ -57,6 +58,7 @@ export RISK_DECISION_THRESHOLD=45
 export RISK_VELOCITY_MAX_ORDERS=4
 export RISK_WEIGHT_SYBIL=30
 export RISK_SAVINGS_PER_BLOCK_INR=90
+export RISK_FAIL_CLOSED=true # Set to true to block orders if risk analysis fails/times out
 ```
 
 ## 🗄️ Audit Storage
@@ -96,7 +98,8 @@ The `/health` endpoint now reports both Redis and audit-backend status, includin
 
 ## 🛡️ Utility Scripts
 ```bash
-# Flush Redis only when you explicitly confirm the destructive action
+# Flush Redis only when you confirm the action and provide the system secret
 export VECTOR_PULSE_RESET_CONFIRM=DELETE_ALL_DATA
+export VECTOR_PULSE_ADMIN_KEY=your_admin_secret_key # Must match ADMIN_SECRET_KEY
 python3 admin_reset.py
 ```

@@ -4,8 +4,8 @@ import asyncio
 import aiohttp
 import sys
 
-# Vector Pulse ROI Calculator
-# This script helps merchants simulate savings by running historical order data through the Vector Pulse API.
+# Vantix ROI Calculator
+# This script helps merchants simulate savings by running historical order data through the Vantix API.
 
 API_URL = "https://vector-pulse-b97i.onrender.com/v1/risk-check"
 API_KEY = "YOUR_API_KEY"
@@ -22,14 +22,14 @@ async def check_order(session, order_data):
         return {"error": str(e)}
 
 async def run_simulation(csv_path, savings_per_rto=100):
-    print(f"--- Vector Pulse ROI Simulation ---")
+    print(f"--- Vantix ROI Simulation ---")
     print(f"Loading orders from: {csv_path}")
     
     orders = []
     with open(csv_path, mode='r') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            # Map CSV columns to Vector Pulse order model
+            # Map CSV columns to Vantix order model
             orders.append({
                 "uid": row.get("order_id"),
                 "amt": float(row.get("amount", 0)),

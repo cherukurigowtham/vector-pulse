@@ -27,7 +27,7 @@ services:
 
   rto_shield_api:
     build: .
-    command: uvicorn api_gateway:app --host 0.0.0.0 --port 8000
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     depends_on:
       redis_store:
         condition: service_healthy

@@ -69,7 +69,7 @@ def login(page: Page):
     expect(page.get_by_text("Control Center")).to_be_visible()
     page.get_by_placeholder("Admin Secret Key").fill(ADMIN_KEY)
     page.get_by_role("button", name="Access Dashboard").click()
-    expect(page.get_by_text("Vector Pulse Admin")).to_be_visible()
+    expect(page.get_by_text("Vantix Admin")).to_be_visible()
 
 
 def test_admin_login_success(page: Page):

@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pydantic
+redis[asyncio]
+aiosqlite
+asyncpg
+geolite2-redist
+python-multipart
+aiohttp
+python-dotenv

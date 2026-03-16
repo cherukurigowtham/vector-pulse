@@ -37,8 +37,9 @@ export VECTOR_PULSE_API_URL="${VECTOR_PULSE_API_URL:-http://localhost:8000}"
 export PYTHONPATH=.
 
 if ! curl -fsS "$VECTOR_PULSE_API_URL/health" >/dev/null 2>&1; then
-  echo "Starting API gateway locally for integration tests..."
-  uvicorn api_gateway:app --host 0.0.0.0 --port 8000 &
+  echo "Starting API locally for integration tests..."
+  # Use the unified app structure
+  uvicorn app.main:app --host 0.0.0.0 --port 8000 &
   API_PID=$!
 fi
 

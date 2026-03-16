@@ -42,6 +42,8 @@ git push -u origin main
    | `REDIS_PORT` | `6379` |
    | `REDIS_SSL` | `true` |
    | `ADMIN_SECRET_KEY` | pick a strong secret (keep this private!) |
+   | `RISK_FAIL_CLOSED` | `true` (recommended for safety) |
+   | `SESSION_COOKIE_SECURE` | `true` |
 5. Click **Deploy**. Wait ~5 min for the Rust build.
 6. Your API lives at: `https://vector-pulse-api.onrender.com`
 
@@ -79,15 +81,9 @@ curl -X POST https://vector-pulse-api.onrender.com/v1/risk-check \
 
 ---
 
-## Step 6 — Set Up Razorpay Payment Links (Free)
+## Step 6 — Final Verification
 
-1. Go to **[razorpay.com](https://razorpay.com)** → Create account (free, 2% fee per transaction)
-2. Dashboard → **Payment Links** → **Create Link**
-3. Set amount to ₹2,999, title "Vector-Pulse Growth Plan"
-4. Copy the link and paste it into `landing/index.html` → `href` on the Growth plan button
-5. Push to GitHub → Vercel auto-deploys in seconds
-
----
+Visit your Render URL to see the live landing page. Verify the Merchant Portal works by logging in with your generated API key.
 
 ## Step 7 — Get Your First Customer
 
