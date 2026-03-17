@@ -96,6 +96,16 @@ class PostgresStore:
             rows = await conn.fetch("SELECT risk_id, uid, risk_score, decision, reasons, timestamp, outcome, shadow_mode FROM risk_audit WHERE email = $1 ORDER BY timestamp DESC LIMIT $2", email, limit)
             return [dict(r) for r in rows]
 
+    async def fetch_compliance_logs(self, email: str, start_ts: float, end_ts: float):
+        async with self.pool.acquire() as conn:
+            # Aggregate both risk decisions and profile audits for compliance reporting
+            risk_rows = await conn.fetch("SELECT * FROM risk_audit WHERE email = $1 AND timestamp >= $2 AND timestamp <= $3 ORDER BY timestamp DESC", email, start_ts, end_ts)
+            profile_rows = await conn.fetch("SELECT * FROM risk_profile_audit WHERE email = $1 AND timestamp >= $2 AND timestamp <= $3 ORDER BY timestamp DESC", email, start_ts, end_ts)
+            return {
+                "risk_events": [dict(r) for r in risk_rows],
+                "profile_changes": [dict(r) for r in profile_rows]
+            }
+
     async def healthcheck(self) -> bool:
         try:
             async with self.pool.acquire() as conn:
@@ -189,6 +199,16 @@ class SQLiteStore:
         async with self.db.execute("SELECT risk_id, uid, risk_score, decision, reasons, timestamp, outcome, shadow_mode FROM risk_audit WHERE email = ? ORDER BY timestamp DESC LIMIT ?", (email, limit)) as cursor:
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
+
+    async def fetch_compliance_logs(self, email: str, start_ts: float, end_ts: float):
+        async with self.db.execute("SELECT * FROM risk_audit WHERE email = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC", (email, start_ts, end_ts)) as cursor:
+            risk_rows = await cursor.fetchall()
+        async with self.db.execute("SELECT * FROM risk_profile_audit WHERE email = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC", (email, start_ts, end_ts)) as cursor:
+            profile_rows = await cursor.fetchall()
+        return {
+            "risk_events": [dict(r) for r in risk_rows],
+            "profile_changes": [dict(r) for r in profile_rows]
+        }
 
     async def healthcheck(self) -> bool:
         try:

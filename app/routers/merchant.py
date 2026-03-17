@@ -62,6 +62,7 @@ async def auth_me(request: Request):
             "limit": limit,
             "savings": savings,
             "plan": plan.upper(),
+            "last_latency": float(await r.get(f"stats:latency:{email}") or 0),
             "pct": min(100, round((usage / limit) * 100)) if limit > 0 else 0
         }
     }
@@ -135,8 +136,9 @@ async def auth_reporting(request: Request):
 
     return {
         "summary": summary,
-        "top_factors": top_factors,
-        "recent_decisions": recent_decisions,
+        "recent_audits": recent_rows,
+        "last_latency": float(await r.get(f"stats:latency:{email}") or 0),
+        "top_flags": sorted(factor_counts.items(), key=lambda x: x[1], reverse=True)[:5]
     }
 
 @router.get("/auth/settings", summary="Get merchant account settings")

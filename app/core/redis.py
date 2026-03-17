@@ -8,6 +8,5 @@ r = redis.Redis(
     db=0,
     decode_responses=True,
     ssl=REDIS_SSL,
-    retry_on_timeout=True,
     health_check_interval=30
 )

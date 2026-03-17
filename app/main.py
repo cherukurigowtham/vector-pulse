@@ -7,7 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import ENVIRONMENT, CORS_ALLOW_ORIGINS, DATABASE_URL, AUDIT_DB
 from app.db.database import AUDIT_STORE
 from app.core.helpers import _log_event, PRIMARY_ADMIN_EMAIL, ADMIN_EMAILS
-from app.routers import risk, admin, merchant, public, webhooks, admin_dashboard, behavioral
+from app.routers import (
+    public, webhooks, risk, admin, admin_dashboard, merchant, 
+    behavioral, compliance, forensics
+)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -101,6 +104,9 @@ async def global_exception_handler(request: Request, exc: Exception):
         },
     )
 
+from app.core.edge_intelligence import EdgeIntelligenceMiddleware
+app.add_middleware(EdgeIntelligenceMiddleware)
+
 # Include Routers
 app.include_router(public.router)
 app.include_router(webhooks.router)
@@ -109,6 +115,8 @@ app.include_router(admin.router)
 app.include_router(admin_dashboard.router)
 app.include_router(merchant.router)
 app.include_router(behavioral.router)
+app.include_router(compliance.router)
+app.include_router(forensics.router)
 
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse

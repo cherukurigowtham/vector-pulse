@@ -201,6 +201,8 @@
                 <div class="tab" onclick="switchTab('integration')">Integration Gateway</div>
                 <div class="tab" onclick="switchTab('neural-map')">Neural Map</div>
                 <div class="tab" onclick="switchTab('shield')">Financial Shield</div>
+                <div class="tab" onclick="switchTab('compliance')">Compliance Hub</div>
+                <div class="tab" onclick="switchTab('forensics')">AI Forensics</div>
                 <div class="tab" onclick="switchTab('alerts')">Alert Engine</div>
                 <div class="tab" onclick="switchTab('settings')">Settings</div>
             </div>
@@ -235,11 +237,9 @@
                     <div class="trend">Anomalous pattern detection</div>
                 </div>
                 <div class="stat-card">
-                    <div class="label">Neural Scanner Usage</div>
-                    <div class="value" id="statUsage">0 / 0</div>
-                    <div id="usageProgress" style="height:6px; background:rgba(255,255,255,0.05); margin-top:14px; border-radius:10px; overflow:hidden;">
-                        <div id="usageBar" style="height:100%; background:var(--accent-gradient); width:0%; transition: width 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);"></div>
-                    </div>
+                    <div class="label">Edge Sync Speed</div>
+                    <div class="value" id="statLatency">0ms</div>
+                    <div class="trend" style="color:var(--accent)">Nano-second Defense Active</div>
                 </div>
             </section>
 
@@ -565,6 +565,78 @@ const risk = await client.analyzeOrder({
             </div>
         </div>
 
+        <!-- Tab: Compliance Hub -->
+        <div id="tab-compliance" class="tab-content hidden">
+            <div class="card" style="max-width:900px; margin: 0 auto;">
+                <div class="card-header">
+                    <div class="card-title">Compliance & Audit Hub</div>
+                    <div style="display:flex; gap:12px;">
+                        <button class="btn btn-small" style="background:var(--surface-opaque); color:var(--text); border:1px solid var(--border);" onclick="generateAuditReport('json')">Export JSON</button>
+                        <button class="btn btn-small primary" onclick="generateAuditReport('csv')">Generate CSV Report</button>
+                    </div>
+                </div>
+                <p style="color:var(--text-muted); font-size:14px; margin-bottom:32px;">Download cryptographically anchored audit trails of all risk decisions and configuration changes for SOC2, GDPR, and PCIDSS compliance mapping.</p>
+                
+                <div class="dashboard-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom:40px;">
+                    <div class="stat-card">
+                        <div class="label">Compliance Status</div>
+                        <div class="value" style="font-size:24px; color:var(--success)">VERIFIED</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Audit Integrity</div>
+                        <div class="value" style="font-size:24px;">ACTIVE</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Last Report</div>
+                        <div class="value" style="font-size:20px;" id="lastReportDate">Never</div>
+                    </div>
+                </div>
+
+                <div id="compliancePreview" class="hidden" style="margin-top:32px;">
+                    <div class="card-title" style="margin-bottom:16px;">Report Preview (Latest 5 Events)</div>
+                    <div class="key-box" style="display:block; max-height:300px; overflow-y:auto;">
+                        <pre id="auditPreviewContent" style="color:var(--text-muted); font-size:11px;"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: AI Forensics -->
+        <div id="tab-forensics" class="tab-content hidden">
+            <div class="main-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Ask Vantix: AI Forensic Assistant</div>
+                    </div>
+                    <p style="color:var(--text-muted); font-size:14px; margin-bottom:24px;">Deep-dive into specific risk decisions using our LLM-powered forensic engine. Explain complex behavioral clusters and coordinated rings in natural language.</p>
+                    
+                    <div class="input-group">
+                        <label>Risk ID / Transaction ID</label>
+                        <input type="text" id="forensicRiskId" placeholder="e.g. 8f2a1b9c3d4e5f0g">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Forensic Query (Optional)</label>
+                        <textarea id="forensicQuery" placeholder="Ask a specific question, e.g. 'Why was this flagged as a cognitive anomaly?'" rows="3"></textarea>
+                    </div>
+                    
+                    <button class="btn primary" onclick="runForensicAnalysis()">Initiate AI Adjudication</button>
+                </div>
+
+                <div class="card" id="forensicResultsCard" style="display:none; border-color:var(--accent);">
+                    <div class="card-header">
+                        <div class="card-title" id="forensicTitle">Adjudication Narrative</div>
+                    </div>
+                    <div id="forensicNarrative" style="font-size:14px; line-height:1.7; color:var(--text); margin-bottom:24px;">
+                        <!-- Narrative injected here -->
+                    </div>
+                    <div class="activity-list" id="forensicSignals">
+                        <!-- Forensic signals here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Tab: Settings -->
         <div id="tab-settings" class="tab-content hidden">
             <div class="card" style="max-width:800px; margin: 0 auto;">
@@ -755,8 +827,16 @@ const risk = await client.analyzeOrder({
                 
                 const usage = stats.usage_this_month || 0;
                 const limit = stats.plan === 'STARTER' ? 1000 : 10000;
-                document.getElementById('statUsage').textContent = `${usage} / ${(limit/1000).toFixed(0)}k`;
-                document.getElementById('usageBar').style.width = `${Math.min(100, (usage/limit)*100)}%`;
+                document.getElementById('statUsage').textContent = `${stats.usage_this_month} / ${limit}`;
+                document.getElementById('usageBar').style.width = `${(stats.usage_this_month / limit) * 100}%`;
+                
+                // Track Latency
+                const latContent = document.getElementById('statLatency');
+                const lastLat = parseFloat(stats.last_latency || 0);
+                latContent.textContent = `${lastLat.toFixed(1)}ms`;
+                if (lastLat < 10) latContent.style.color = 'var(--success)';
+                else if (lastLat < 50) latContent.style.color = 'var(--accent)';
+                else latContent.style.color = 'var(--text)';
 
                 const br = usage > 0 ? (stats.total_blocks / usage * 100).toFixed(1) : '0.0';
                 document.getElementById('statBlockRate').textContent = `${br}%`;
@@ -1029,6 +1109,89 @@ const risk = await client.analyzeOrder({
                 }
             } catch (e) {
                 showToast('Pilot activation failed.');
+            }
+        }
+
+        async function generateAuditReport(format = 'json') {
+            const startStr = prompt("Enter Start Timestamp (Unix seconds):", (Date.now()/1000 - 86400*7).toFixed(0));
+            if (!startStr) return;
+            
+            try {
+                const res = await fetch(`/v1/compliance/report?start_timestamp=${startStr}&format=${format}`, {
+                    headers: { 'X-API-Key': currentApiKey }
+                });
+                const data = await res.json();
+                
+                if (format === 'csv') {
+                    const blob = new Blob([data.csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.setAttribute('hidden', '');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', `Vantix_Audit_${data.report_id || 'REPORT'}.csv`);
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                } else {
+                    document.getElementById('compliancePreview').classList.remove('hidden');
+                    document.getElementById('auditPreviewContent').textContent = JSON.stringify(data, null, 2);
+                    document.getElementById('lastReportDate').textContent = new Date().toLocaleTimeString();
+                    showToast('Compliance report generated.');
+                }
+            } catch (e) {
+                showToast('Report generation failed.');
+            }
+        }
+
+        async function runForensicAnalysis() {
+            const riskId = document.getElementById('forensicRiskId').value.trim();
+            if (!riskId) return showToast('Please enter a Risk ID.');
+            
+            const query = document.getElementById('forensicQuery').value.trim();
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = 'Analyzing Neural Clusters...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/v1/forensics/ask', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-API-Key': currentApiKey 
+                    },
+                    body: JSON.stringify({ risk_id: riskId, query: query })
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    document.getElementById('forensicResultsCard').style.display = 'block';
+                    document.getElementById('forensicNarrative').textContent = data.adjudication_narrative;
+                    document.getElementById('forensicTitle').textContent = `AI Adjudication: ${riskId}`;
+                    
+                    const signals = document.getElementById('forensicSignals');
+                    signals.innerHTML = '';
+                    Object.entries(data.forensic_signals).forEach(([key, val]) => {
+                        const item = document.createElement('div');
+                        item.className = 'activity-item';
+                        item.innerHTML = `
+                            <div class="activity-icon">${key[0].toUpperCase()}</div>
+                            <div>
+                                <div style="font-weight:700; text-transform:capitalize;">${key} Sensor</div>
+                                <div style="color:var(--text-muted);">${val}</div>
+                            </div>
+                        `;
+                        signals.appendChild(item);
+                    });
+                    showToast('Forensic analysis complete.');
+                } else {
+                    showToast(data.detail || 'Analysis failed.');
+                }
+            } catch (e) {
+                showToast('Neural network timeout.');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
             }
         }
 

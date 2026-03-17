@@ -4,8 +4,10 @@ import hashlib
 import secrets
 import logging
 import asyncio
-from fastapi import APIRouter, Depends, HTTPException, Security, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Security, BackgroundTasks, Response
 from app.models import Order, OutcomeUpdate
+
+logger = logging.getLogger(__name__)
 from app.core.config import RISK_CONFIG, RISK_FAIL_CLOSED, RATE_LIMITS
 from app.core.redis import r
 from app.db.database import AUDIT_STORE
@@ -15,6 +17,7 @@ from app.core.helpers import (
     _log_event
 )
 from app.services.risk_service import run_risk_analysis, _merchant_state_key
+from app.services.cache_service import dfc
 from app.core.intelligence import get_cluster_risk_bonus, apply_outcome_feedback
 from app.services.graph_service import link_identity
 from app.services.quarantine_service import process_fraud_feedback
@@ -74,25 +77,37 @@ async def _perform_post_analysis_ops(
             blocks_key = f"stats:blocks:{merchant_key_hash}"
             await r.incrby(savings_key, risk_config["savings_per_block_inr"])
             await r.expire(savings_key, 86400 * 90)
-            await r.incr(blocks_key)
-            await r.expire(blocks_key, 86400 * 90)
-            
-            status_label = "SHADOW_BLOCK" if order.shadow else "BLOCK"
-            await r.lpush("recent_blocks", f"{order.uid}: {', '.join(analysis['flags'])} ({status_label}: {analysis['score']:.0f}) [ID: {risk_id}]")
-            await r.ltrim("recent_blocks", 0, 49)
-            await r.expire("recent_blocks", 86400 * 7)
+            awards_key = f"stats:awards:{merchant_key_hash}"
+            await r.incr(awards_key)
+            await r.expire(awards_key, 86400 * 90)
 
-            m = analysis["metrics"]
-            if m.get("velocity"): await r.incr("stat:velocity")
-            if m.get("sybil"):    await r.incr("stat:sybil")
-            if m.get("price"):    await r.incr("stat:price")
+        # 3. Distributed Fraud Cache (DFC) Proactive Sync
+        await dfc.update_cache(order.email, merchant_email, {
+            "score": analysis["score"],
+            "decision": action,
+            "flags": analysis["flags"],
+            "timestamp": context["timestamp"],
+            "risk_id": risk_id
+        })
+
+        await r.expire(blocks_key, 86400 * 90)
+        
+        status_label = "SHADOW_BLOCK" if order.shadow else "BLOCK"
+        await r.lpush("recent_blocks", f"{order.uid}: {', '.join(analysis['flags'])} ({status_label}: {analysis['score']:.0f}) [ID: {risk_id}]")
+        await r.ltrim("recent_blocks", 0, 49)
+        await r.expire("recent_blocks", 86400 * 7)
+
+        m = analysis["metrics"]
+        if m.get("velocity"): await r.incr("stat:velocity")
+        if m.get("sybil"):    await r.incr("stat:sybil")
+        if m.get("price"):    await r.incr("stat:price")
             
-            if m.get("anomaly_flag") or m.get("is_cluster_flag") or "IDENTITY_CLUSTER_DETECTED" in analysis["flags"]:
-                await r.incr("stat:clusters")
-            if m.get("vpn") or m.get("geo_velocity") or "IMPOSSIBLE_TRAVEL" in analysis["flags"] or "ANONYMOUS_IP_DETECTED" in analysis["flags"]:
-                await r.incr("stat:geoip")
-            
-            await r.incr("total_blocks")
+        if m.get("anomaly_flag") or m.get("is_cluster_flag") or "IDENTITY_CLUSTER_DETECTED" in analysis["flags"]:
+            await r.incr("stat:clusters")
+        if m.get("vpn") or m.get("geo_velocity") or "IMPOSSIBLE_TRAVEL" in analysis["flags"] or "ANONYMOUS_IP_DETECTED" in analysis["flags"]:
+            await r.incr("stat:geoip")
+        
+        await r.incr("total_blocks")
         
         state_key = _merchant_state_key(merchant_key_hash, "reptotal", order.uid)
         await r.incr(state_key)
@@ -154,6 +169,18 @@ async def check_order(order: Order, bg: BackgroundTasks, key_data: dict = Depend
     merchant_email = key_data.get("email")
     plan = key_data.get("data", {}).get("plan", "free")
     
+    # 0. Distributed Fraud Cache (DFC) Sub-10ms Lookup
+    cached = await dfc.get_decision(order.email, merchant_email)
+    if cached:
+        # Check if cache is still valid for this merchant's current threshold
+        if cached.get("score", 0) < risk_config.get("decision_threshold", 50):
+            logger.info(f"DFC HIT | Fast-tracking order {order.uid} for {order.email}")
+            return Response(
+                content=json.dumps(cached),
+                media_type="application/json",
+                headers={"X-Vantix-Cache": "HIT", "X-Latency-MS": "0"}
+            )
+
     # Ratelimit
     if await _sliding_window_rate_limit(f"burst:{merchant_key_hash}", 50, 1):
         raise HTTPException(status_code=429, detail="Burst rate limit exceeded.")
@@ -191,6 +218,8 @@ async def check_order(order: Order, bg: BackgroundTasks, key_data: dict = Depend
     bg.add_task(_perform_post_analysis_ops, order, analysis, risk_id, action, risk_config, merchant_key_hash, merchant_email, usage_key)
 
     latency = (time.perf_counter() - start_time) * 1000
+    bg.add_task(r.set, f"stats:latency:{merchant_email}", str(latency))
+    
     return {
         "uid": order.uid, "risk_id": risk_id, "decision": action, "shadow_mode": order.shadow,
         "risk_score": round(float(risk_score), 1), "risk_factors": analysis["flags"], "latency_ms": f"{latency:.2f}ms",
