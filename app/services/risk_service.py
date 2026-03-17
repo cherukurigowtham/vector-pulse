@@ -13,6 +13,9 @@ from app.core.geoip import GEO_READER
 from app.db.database import AUDIT_STORE
 from app.services.graph_service import link_identity
 from app.services.vector_service import generate_semantic_hash, check_vector_cluster
+from app.services.action_engine import ActionEngine
+
+_engine = ActionEngine(r)
 
 async def _log_audit_event(risk_id: str, email: str, context: dict, decision: str, shadow: bool):
     try:
@@ -557,4 +560,10 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
     if avg_rep < 0.4: reasons.append("GLOBAL_REPUTATION_WARNING")
     elif avg_rep > 0.8: reasons.append("NETWORK_WIDE_TRUSTED_USER")
     
-    return {"score": risk_score, "flags": reasons, "trust_score": trust_score, "xai_impacts": xai_impacts, "metrics": {"velocity": is_velocity_flag, "sybil": is_sybil_flag, "price": is_price_anomaly, "trust": trust_score, "vpn": is_vpn_flag, "global_network": is_global_network_flag, "is_quarantined": is_quarantined, "consortium_hits": consortium_hits, "gibberish": is_gibberish_flag, "device_velocity": is_device_velocity_flag, "suspicious_name": is_suspicious_name_flag, "geo_velocity": is_geo_velocity_flag, "time_anomaly": is_time_anomaly_flag, "bot_speed": is_bot_speed_flag, "suspicious_phone": is_suspicious_phone_flag, "disposable_email": is_disposable_email_flag, "email_name_mismatch": is_email_name_mismatch_flag, "poor_address": is_poor_address_flag, "high_risk_pin": is_high_risk_pin_flag, "order_hash": order_hash}}
+    risk_result = {"score": risk_score, "flags": reasons, "trust_score": trust_score, "xai_impacts": xai_impacts, "metrics": {"velocity": is_velocity_flag, "sybil": is_sybil_flag, "price": is_price_anomaly, "trust": trust_score, "vpn": is_vpn_flag, "global_network": is_global_network_flag, "is_quarantined": is_quarantined, "consortium_hits": consortium_hits, "gibberish": is_gibberish_flag, "device_velocity": is_device_velocity_flag, "suspicious_name": is_suspicious_name_flag, "geo_velocity": is_geo_velocity_flag, "time_anomaly": is_time_anomaly_flag, "bot_speed": is_bot_speed_flag, "suspicious_phone": is_suspicious_phone_flag, "disposable_email": is_disposable_email_flag, "email_name_mismatch": is_email_name_mismatch_flag, "poor_address": is_poor_address_flag, "high_risk_pin": is_high_risk_pin_flag, "order_hash": order_hash}}
+
+    # Phase 10: Autonomous Action Hub
+    actions = await _engine.evaluate(merchant_email, risk_result, order.model_dump())
+    risk_result["actions"] = actions
+    
+    return risk_result

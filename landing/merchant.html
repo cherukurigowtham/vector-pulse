@@ -196,6 +196,7 @@
             <div class="tabs">
                 <div class="tab active" onclick="switchTab('dashboard')">Dashboard</div>
                 <div class="tab" onclick="switchTab('rules')">Risk Intelligence</div>
+                <div class="tab" onclick="switchTab('actions')">Action Hub</div>
                 <div class="tab" onclick="switchTab('alerts')">Alert Engine</div>
                 <div class="tab" onclick="switchTab('settings')">Settings</div>
             </div>
@@ -365,7 +366,39 @@
             </div>
         </div>
 
-        <!-- Tab: Alert Engine -->
+        <!-- Tab: Action Hub -->
+        <div id="tab-actions" class="tab-content hidden">
+            <div class="main-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Autonomous Defense Rules</div>
+                        <button class="btn btn-small primary" onclick="addRuleRow()">+ New Rule</button>
+                    </div>
+                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:24px;">Configure how Vantix should autonomously respond when specific risk thresholds are hit.</p>
+                    
+                    <div id="activeRulesList" style="display:flex; flex-direction:column; gap:12px;">
+                        <!-- Rules will be injected here -->
+                    </div>
+                    
+                    <div id="rulesEmptyState" class="hidden" style="text-align:center; padding:40px; color:var(--text-muted); font-size:14px; border:1px dashed var(--border); border-radius:20px;">
+                        No active autonomous rules. Click "+ New Rule" to start.
+                    </div>
+
+                    <div style="margin-top:32px;">
+                        <button class="btn primary" id="saveRulesBtn" onclick="saveRules()" style="width:auto; padding-left:32px; padding-right:32px; display:none;">Commit Rules</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Action History</div>
+                    </div>
+                    <div class="activity-list" id="actionHistoryFeed">
+                        <!-- Action logs injected here -->
+                    </div>
+                </div>
+            </div>
+        </div>
         <div id="tab-alerts" class="tab-content hidden">
             <div class="card" style="max-width:800px; margin: 0 auto;">
                 <div class="card-header">
@@ -535,6 +568,8 @@
                 loadDashboard(data);
                 fetchStats();
                 fetchWebhookSettings();
+                fetchRules();
+                fetchActionHistory();
             } catch (e) {
                 err.textContent = e.message;
                 err.style.display = 'block';
@@ -678,6 +713,127 @@
                 btn.textContent = originalText;
                 btn.disabled = false;
             }
+        }
+
+        async function fetchRules() {
+            try {
+                const res = await fetch('/v1/auth/rules');
+                const data = await res.json();
+                renderRules(data.rules || []);
+            } catch (e) {
+                console.error("Rules fetch failed", e);
+            }
+        }
+
+        let stagedRules = [];
+
+        function renderRules(rules) {
+            stagedRules = rules;
+            const list = document.getElementById('activeRulesList');
+            const empty = document.getElementById('rulesEmptyState');
+            list.innerHTML = '';
+            
+            if (rules.length === 0) {
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+
+            rules.forEach((rule, idx) => {
+                const row = document.createElement('div');
+                row.className = 'config-row';
+                row.style = 'background:rgba(255,255,255,0.02); padding:16px; border-radius:14px; margin-bottom:8px; border:1px solid var(--border);';
+                row.innerHTML = `
+                    <div class="config-info">
+                        <div style="font-weight:700; font-size:14px; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+                            ${rule.action === 'CANCEL' ? '🔴 Auto-Cancel' : rule.action === 'VERIFY' ? '🔵 Auto-Verify (OTP)' : '🟡 Alert Notification'}
+                        </div>
+                        <div style="font-size:12px; color:var(--text-muted)">Triggered when risk score exceeds <strong>${rule.threshold}</strong></div>
+                    </div>
+                    <button class="logout-btn" style="background:transparent; border-color:var(--border); width:auto;" onclick="removeRule(${idx})">Delete</button>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function addRuleRow() {
+            const threshold = prompt("Enter Risk Score Threshold (0-100):", "85");
+            if (threshold === null) return;
+            
+            const action = prompt("Enter Action (CANCEL, VERIFY, NOTIFY):", "CANCEL");
+            if (!action) return;
+
+            const newRule = {
+                id: 'rule_' + Date.now(),
+                threshold: parseFloat(threshold),
+                action: action.toUpperCase()
+            };
+            
+            stagedRules.push(newRule);
+            renderRules(stagedRules);
+            document.getElementById('saveRulesBtn').style.display = 'block';
+        }
+
+        function removeRule(idx) {
+            stagedRules.splice(idx, 1);
+            renderRules(stagedRules);
+            document.getElementById('saveRulesBtn').style.display = 'block';
+        }
+
+        async function saveRules() {
+            try {
+                const res = await fetch('/v1/auth/rules', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': getCookie('vp_csrf')
+                    },
+                    body: JSON.stringify({ rules: stagedRules })
+                });
+                if (res.ok) {
+                    showToast('Autonomous rules committed to engine.');
+                    document.getElementById('saveRulesBtn').style.display = 'none';
+                }
+            } catch (e) {
+                showToast('Failed to sync rules.');
+            }
+        }
+
+        async function fetchActionHistory() {
+            try {
+                const res = await fetch('/v1/auth/actions/history');
+                const data = await res.json();
+                renderActionHistory(data.history || []);
+            } catch (e) {
+                console.error("History fetch failed", e);
+            }
+        }
+
+        function renderActionHistory(history) {
+            const feed = document.getElementById('actionHistoryFeed');
+            feed.innerHTML = '';
+            
+            if (history.length === 0) {
+                feed.innerHTML = '<div style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px;">Waiting for neural triggers...</div>';
+                return;
+            }
+
+            history.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'activity-item';
+                const timeStr = new Date(item.timestamp * 1000).toLocaleTimeString();
+                div.innerHTML = `
+                    <div class="activity-icon" style="color:${item.action === 'CANCEL' ? 'var(--danger)' : 'var(--accent)'}; background:rgba(255,255,255,0.05)">
+                        ${item.action === 'CANCEL' ? '✕' : '⚡'}
+                    </div>
+                    <div>
+                        <div style="font-weight:700;">${item.action} Executed</div>
+                        <div style="color:var(--text-muted);">Neural Score: ${item.score} | Order: ${item.order_id}</div>
+                        <div class="time">${timeStr}</div>
+                    </div>
+                `;
+                feed.appendChild(div);
+            });
         }
 
         function initChart() {

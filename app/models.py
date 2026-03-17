@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, EmailStr, field_validator
 import unicodedata
-from typing import Any, Literal
+from typing import Any, Literal, List
 
 class Order(BaseModel):
     uid: str = Field(..., min_length=1, max_length=64)
@@ -113,3 +113,11 @@ class OutcomeUpdate(BaseModel):
 class WebhookSettingsUpdate(BaseModel):
     alert_webhook_url: str | None = Field(None, max_length=512)
     webhook_secret: str | None = Field(None, min_length=16, max_length=64)
+
+class AutomationRule(BaseModel):
+    id: str
+    threshold: float = Field(..., ge=0, le=100)
+    action: Literal["CANCEL", "VERIFY", "NOTIFY"]
+
+class AutomationRulesUpdate(BaseModel):
+    rules: List[AutomationRule]

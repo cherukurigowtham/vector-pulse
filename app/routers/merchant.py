@@ -2,7 +2,7 @@ import time
 import json
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
-from app.models import Order, RiskConfigUpdateRequest, MerchantSettingsUpdate, UpgradeRequest, WebhookSettingsUpdate
+from app.models import Order, RiskConfigUpdateRequest, MerchantSettingsUpdate, UpgradeRequest, WebhookSettingsUpdate, AutomationRulesUpdate
 from app.core.config import RISK_CONFIG, RATE_LIMITS
 from app.core.redis import r
 from app.db.database import AUDIT_STORE
@@ -12,6 +12,9 @@ from app.core.helpers import (
     _find_key_hash_by_email, _key_preview, _is_admin_email
 )
 from app.core.security import require_api_key, require_admin, require_csrf
+from app.services.action_engine import ActionEngine
+
+engine = ActionEngine(r)
 
 router = APIRouter(prefix="/v1", tags=["merchant"])
 
@@ -285,6 +288,44 @@ async def get_upgrade_request(request: Request):
 
     payload = await r.hgetall(f"upgrade_request:{email}")
     return {"request": payload or None}
+
+@router.get("/auth/rules", summary="Get merchant automation rules")
+async def get_rules(request: Request):
+    session_id = request.cookies.get("vp_session")
+    if not session_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    email = await r.get(f"session:{session_id}")
+    if not email:
+        raise HTTPException(status_code=401, detail="Session expired")
+    
+    rules = await engine.get_rules(email)
+    return {"rules": rules}
+
+@router.post("/auth/rules", summary="Update merchant automation rules")
+async def update_rules(update: AutomationRulesUpdate, request: Request, _csrf = Depends(require_csrf)):
+    session_id = request.cookies.get("vp_session")
+    if not session_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    email = await r.get(f"session:{session_id}")
+    if not email:
+        raise HTTPException(status_code=401, detail="Session expired")
+    
+    # Convert Pydantic models to dicts for storage
+    rules_dict = [r.model_dump() for r in update.rules]
+    await engine.save_rules(email, rules_dict)
+    return {"status": "success", "rules": rules_dict}
+
+@router.get("/auth/actions/history", summary="Get merchant action history")
+async def get_action_history(request: Request):
+    session_id = request.cookies.get("vp_session")
+    if not session_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    email = await r.get(f"session:{session_id}")
+    if not email:
+        raise HTTPException(status_code=401, detail="Session expired")
+    
+    history = await engine.get_action_history(email)
+    return {"history": history}
 
 @router.post("/order-delivered", summary="Mark order as delivered — builds user trust")
 async def mark_delivered(uid: str, merchant: dict = Depends(require_api_key)):
