@@ -695,16 +695,11 @@ async def run_risk_analysis(
     tasks.append(cluster_stats_task)
 
     # Add timeout to prevent long-lead dependencies from stalling risk analysis
+    DEFAULT_RISK_TIMEOUT = 2.0
     overall_timeout = (
-        risk_config.get("overall_timeout", 2.0)
+        risk_config.get("overall_timeout", DEFAULT_RISK_TIMEOUT)
         if isinstance(risk_config, dict)
-        else 2.0
-    )
-    # Add timeout wrapper to avoid stalling on slow/unresponsive signals
-    overall_timeout = (
-        risk_config.get("overall_timeout", 2.0)
-        if isinstance(risk_config, dict)
-        else 2.0
+        else DEFAULT_RISK_TIMEOUT
     )
     try:
         results = await asyncio.wait_for(
