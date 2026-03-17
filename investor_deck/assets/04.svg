@@ -21,7 +21,7 @@
   <rect width="1600" height="900" fill="url(#bg)"/>
   <rect x="58" y="58" width="1484" height="784" rx="30" fill="none" stroke="#22304a"/>
   <text class="eyebrow" x="110" y="128">SOLUTION</text>
-  <text class="title" x="110" y="200">Vector Pulse helps merchants decide</text>
+  <text class="title" x="110" y="200">Vantix helps merchants decide</text>
   <text class="title" x="110" y="264">which COD orders are safe</text>
   <text class="body" x="110" y="328">The product evaluates each order before shipment, identifies risk patterns, and returns a simple operational decision.</text>
 
