@@ -129,6 +129,21 @@ async def apply_outcome_feedback(email: str, factors: List[str], outcome: str, i
         await r.expire(f"neural:bias:{email}", 60 * 86400) # 60-day memory for learned behavior
         _log_event("intelligence_learned", email=email, outcome=outcome, weight_adjustments=biases)
     
-    # Pillar 2: Global Pulse Propagation
-    if identities:
-        await apply_global_reputation_impact(identities, outcome)
+async def broadcast_geo_telemetry(lat: float, lon: float, risk_score: float):
+    """
+    Broadcasts anonymized geo-spatial attack data to the global telemetry feed.
+    This enables the 'Real-Time Heatmap' in the Merchant Portal.
+    """
+    try:
+        event = {
+            "lat": round(lat, 2), # Lossy precision for privacy
+            "lon": round(lon, 2),
+            "score": round(risk_score, 1),
+            "ts": time.time()
+        }
+        # Push to a capped list for real-time visualization
+        await r.lpush("global:telemetry:geo", json.dumps(event))
+        await r.ltrim("global:telemetry:geo", 0, 499) # Keep last 500 events
+        await r.expire("global:telemetry:geo", 3600 * 6) # 6h TTL
+    except Exception as e:
+        logging.error(f"Telemetry Broadcast Failed: {e}")
