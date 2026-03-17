@@ -382,3 +382,7 @@ async def update_merchant_config(req: RiskConfigUpdateRequest, merchant: dict = 
     new_config = await _resolve_risk_config(new_profile)
     await _log_risk_profile_change(merchant["email"], f"merchant:{merchant['email']}", "UPDATE", previous_config, new_config)
     return {"email": merchant["email"], "risk_config": new_config, "is_custom": _has_custom_risk_profile(new_profile)}
+
+@router.post("/auth/test-connection", summary="SDK: Test API key connectivity")
+async def test_connection(merchant: dict = Depends(require_api_key)):
+    return {"status": "success", "authenticated_as": merchant["email"]}

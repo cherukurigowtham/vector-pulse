@@ -197,6 +197,7 @@
                 <div class="tab active" onclick="switchTab('dashboard')">Dashboard</div>
                 <div class="tab" onclick="switchTab('rules')">Risk Intelligence</div>
                 <div class="tab" onclick="switchTab('actions')">Action Hub</div>
+                <div class="tab" onclick="switchTab('integration')">Integration Gateway</div>
                 <div class="tab" onclick="switchTab('alerts')">Alert Engine</div>
                 <div class="tab" onclick="switchTab('settings')">Settings</div>
             </div>
@@ -395,6 +396,69 @@
                     </div>
                     <div class="activity-list" id="actionHistoryFeed">
                         <!-- Action logs injected here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Integration Gateway -->
+        <div id="tab-integration" class="tab-content hidden">
+            <div class="main-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Integration Gateway</div>
+                    </div>
+                    <p style="color:var(--text-muted); font-size:14px; margin-bottom:32px;">Connect your store to the Vantix neural network with our specialized SDKs and Pixel-based integration.</p>
+                    
+                    <div class="tabs" style="margin-bottom:24px;">
+                        <div class="tab active" style="font-size:11px;" onclick="switchSdkTab('python')">Python SDK</div>
+                        <div class="tab" style="font-size:11px;" onclick="switchSdkTab('node')">Node.js SDK</div>
+                        <div class="tab" style="font-size:11px;" onclick="switchSdkTab('pixel')">Universal Pixel</div>
+                    </div>
+
+                    <div id="sdk-python" class="sdk-content">
+                        <div class="key-box" style="display:block;">
+                            <pre style="color:var(--accent); font-size:12px; margin-bottom:0;"># pip install vantix-sdk
+from vantix import VantixClient
+
+client = VantixClient(api_key="YOUR_LIVE_KEY")
+risk = await client.analyze_order({
+    "uid": "order_123",
+    "amt": 2999,
+    "addr": "..."
+})</pre>
+                        </div>
+                    </div>
+
+                    <div id="sdk-node" class="sdk-content hidden">
+                        <div class="key-box" style="display:block;">
+                            <pre style="color:var(--accent); font-size:12px; margin-bottom:0;">// npm install vantix-sdk
+const Vantix = require('vantix-sdk');
+
+const client = new Vantix("YOUR_LIVE_KEY");
+const risk = await client.analyzeOrder({
+    uid: "order_123",
+    amt: 2999
+});</pre>
+                        </div>
+                    </div>
+
+                    <div id="sdk-pixel" class="sdk-content hidden">
+                        <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Paste this before your closing &lt;/head&gt; tag for one-click behavioral intelligence.</p>
+                        <div class="key-box" style="display:block;">
+                            <pre style="color:var(--accent); font-size:11px; margin-bottom:0;">&lt;script src="https://cdn.vantix.ai/pixel.js?id=YOUR_KEY"&gt;&lt;/script&gt;</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Connectivity Tester</div>
+                    </div>
+                    <div style="text-align:center; padding:20px;">
+                        <div id="testerStatus" style="width:12px; height:12px; background:#444; border-radius:50%; margin:0 auto 12px; box-shadow:0 0 10px rgba(255,255,255,0.05);"></div>
+                        <div id="testerText" style="font-size:13px; font-weight:700; color:var(--text-muted);">NOT CONNECTED</div>
+                        <button class="btn btn-small primary" style="margin-top:24px;" onclick="runConnectionTest()">Verify Handshake</button>
                     </div>
                 </div>
             </div>
@@ -834,6 +898,42 @@
                 `;
                 feed.appendChild(div);
             });
+        }
+
+        function switchSdkTab(sdk) {
+            document.querySelectorAll('#tab-integration .tab').forEach(t => {
+                t.classList.toggle('active', t.textContent.toLowerCase().includes(sdk));
+            });
+            document.querySelectorAll('.sdk-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(`sdk-${sdk}`).classList.remove('hidden');
+        }
+
+        async function runConnectionTest() {
+            const dot = document.getElementById('testerStatus');
+            const txt = document.getElementById('testerText');
+            txt.textContent = 'VERIFYING...';
+            
+            try {
+                const res = await fetch('/v1/auth/test-connection', {
+                    method: 'POST',
+                    headers: { 'X-API-Key': currentApiKey }
+                });
+                if (res.ok) {
+                    dot.style.background = 'var(--success)';
+                    dot.style.boxShadow = '0 0 15px var(--success)';
+                    txt.textContent = 'CONNECTION ACTIVE';
+                    txt.style.color = 'var(--success)';
+                    showToast('Neural handshake verified.');
+                } else {
+                    throw new Error();
+                }
+            } catch (e) {
+                dot.style.background = 'var(--danger)';
+                dot.style.boxShadow = '0 0 15px var(--danger)';
+                txt.textContent = 'HANDSHAKE FAILED';
+                txt.style.color = 'var(--danger)';
+                showToast('Authentication failed.');
+            }
         }
 
         function initChart() {
