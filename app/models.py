@@ -16,6 +16,7 @@ class Order(BaseModel):
     # Behavioral DNA Fields
     keystroke_velocity: float | None = Field(None, ge=0)
     mouse_movement_entropy: float | None = Field(None, ge=0)
+    session_id: str | None = Field(None, min_length=16, max_length=128)
     shadow: bool = False
 
     @field_validator("uid", "addr", "name", "email", "phone", "ip", "device_hash", mode="before")

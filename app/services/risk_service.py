@@ -14,6 +14,7 @@ from app.db.database import AUDIT_STORE
 from app.services.graph_service import link_identity
 from app.services.vector_service import generate_semantic_hash, check_vector_cluster
 from app.services.action_engine import ActionEngine
+from app.services.behavioral_service import analyze_session_behavior
 
 _engine = ActionEngine(r)
 
@@ -488,18 +489,22 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
     # Pillar 2: Graph Analysis
     graph_task = link_identity(uid, order.email, order.phone, address, client_ip, merchant_email)
     
+    # Pillar 13 (v4): Behavioral Transformers (Cognitive Signal Analysis)
+    behavior_task = analyze_session_behavior(merchant_email, order.session_id) if order.session_id else None
+    
     results = await asyncio.gather(
         velocity_task, sybil_task, price_task, trust_task, ip_task, 
         global_velocity_task, global_sybil_task, device_velocity_task, 
         geo_velocity_task, high_risk_pin_task, is_disposable_email_task,
-        identity_cache_task, identity_cluster_task, graph_task, quarantine_task
+        identity_cache_task, identity_cluster_task, graph_task, quarantine_task,
+        behavior_task
     )
     (
         is_velocity_flag, is_sybil_flag, (is_price_anomaly, avg, std_dev), 
         trust_score, is_vpn_flag, is_global_velocity_flag, is_global_sybil_flag, 
         is_device_velocity_flag, is_geo_velocity_flag, is_high_risk_pin_flag, 
         is_disposable_email_flag, is_identity_flag, (is_cluster_flag, cluster_score),
-        graph_res, is_quarantined
+        graph_res, is_quarantined, behavior_res
     ) = results
     
     consortium_hits = graph_res.get("hits", 0)
@@ -521,15 +526,24 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
     # Pillar 4: Behavioral DNA
     behavioral_flags, behavioral_score = _check_behavioral_dna(order, risk_config)
     
+    # Inject Phase 13 Behavioral Signals
+    if behavior_res and "score_impact" in behavior_res:
+        cog_impact = behavior_res["score_impact"]
+        if cog_impact > 0:
+            behavioral_score += cog_impact
+            behavioral_flags.append(f"COGNITIVE_ANOMALY_DETECTED({behavior_res.get('event_count', 0)} events)")
+            if behavior_res.get("entropy", 1.0) < 0.2:
+                behavioral_flags.append("LOW_INTERACTION_ENTROPY")
+
     # Pillar 1 (v4): Cognitive Ensemble Scoring
     risk_score, xai_impacts = _calculate_risk_score(is_velocity_flag, is_sybil_flag, is_price_anomaly, is_identity_flag, is_cluster_flag, trust_score, is_vpn_flag, is_global_network_flag, is_gibberish_flag, is_device_velocity_flag, is_suspicious_name_flag, is_geo_velocity_flag, is_time_anomaly_flag, is_bot_speed_flag, is_suspicious_phone_flag, is_disposable_email_flag, is_email_name_mismatch_flag, is_poor_address_flag, is_high_risk_pin_flag, risk_config, consortium_hits=consortium_hits, is_quarantined=is_quarantined, reputation_map=reputation_map)
     
     # Add Behavioral Impacts to XAI
     if behavioral_score > 0:
         risk_score = min(100.0, risk_score + behavioral_score)
+        impact_per_flag = behavioral_score / len(behavioral_flags) if behavioral_flags else 0
         for b_flag in behavioral_flags:
-             # Attributing behavioral score proportionally to flags
-             xai_impacts[b_flag] = behavioral_score / len(behavioral_flags)
+             xai_impacts[b_flag] = impact_per_flag
 
     reasons = []
     reasons.extend(behavioral_flags)
