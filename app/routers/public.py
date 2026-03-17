@@ -47,6 +47,8 @@ async def signup(req: AuthRequest, response: Response, request: Request):
             "key_prefix": key_meta["key_prefix"],
             "key_suffix": key_meta["key_suffix"],
             "plan": "free",
+            "role": "ANALYST",
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
         })
         pipe.hset(f"apikey:{legacy_hash}", mapping={
             "email": req.email,
