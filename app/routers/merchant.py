@@ -386,3 +386,30 @@ async def update_merchant_config(req: RiskConfigUpdateRequest, merchant: dict = 
 @router.post("/auth/test-connection", summary="SDK: Test API key connectivity")
 async def test_connection(merchant: dict = Depends(require_api_key)):
     return {"status": "success", "authenticated_as": merchant["email"]}
+
+@router.post("/auth/financial-shield/opt-in", summary="Opt-in to RTO Insurance pilot")
+async def financial_shield_opt_in(request: Request, _csrf = Depends(require_csrf)):
+    session_id = request.cookies.get("vp_session")
+    if not session_id: raise HTTPException(status_code=401)
+    email = await r.get(f"session:{session_id}")
+    if not email: raise HTTPException(status_code=401)
+    
+    await r.set(f"merchant:shield:active:{email}", "true")
+    await _log_event(email, "FINANCIAL_SHIELD_OPT_IN", {"status": "active"})
+    return {"status": "success", "shield_active": True}
+
+@router.get("/auth/financial-shield/stats", summary="Get insurance coverage stats")
+async def financial_shield_stats(request: Request):
+    session_id = request.cookies.get("vp_session")
+    if not session_id: raise HTTPException(status_code=401)
+    email = await r.get(f"session:{session_id}")
+    if not email: raise HTTPException(status_code=401)
+    
+    is_active = await r.get(f"merchant:shield:active:{email}")
+    # Simulate coverage data
+    return {
+        "is_active": is_active == "true",
+        "shielded_capital": 450000 if is_active == "true" else 0,
+        "active_claims": 0,
+        "premium_accrued": 1250 if is_active == "true" else 0
+    }

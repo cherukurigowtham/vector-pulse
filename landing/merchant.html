@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Merchant Portal | Vantix</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="assets/graph_visual.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -198,6 +199,8 @@
                 <div class="tab" onclick="switchTab('rules')">Risk Intelligence</div>
                 <div class="tab" onclick="switchTab('actions')">Action Hub</div>
                 <div class="tab" onclick="switchTab('integration')">Integration Gateway</div>
+                <div class="tab" onclick="switchTab('neural-map')">Neural Map</div>
+                <div class="tab" onclick="switchTab('shield')">Financial Shield</div>
                 <div class="tab" onclick="switchTab('alerts')">Alert Engine</div>
                 <div class="tab" onclick="switchTab('settings')">Settings</div>
             </div>
@@ -463,6 +466,69 @@ const risk = await client.analyzeOrder({
                 </div>
             </div>
         </div>
+        <!-- Tab: Neural Map -->
+        <div id="tab-neural-map" class="tab-content hidden">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Collective Neural Map</div>
+                </div>
+                <p style="color:var(--text-muted); font-size:14px; margin-bottom:24px;">Visualizing coordinated fraud clusters and high-risk subgraphs across the Vantix network.</p>
+                <div style="background:rgba(0,0,0,0.3); border-radius:24px; border:1px solid var(--border); overflow:hidden; position:relative;">
+                    <canvas id="neuralMapCanvas" width="1200" height="600" style="width:100%; display:block;"></canvas>
+                    <div style="position:absolute; top:24px; right:24px; background:var(--surface); padding:16px; border-radius:16px; border:1px solid var(--border); font-size:12px; backdrop-filter:var(--glass);">
+                        <div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;"><div style="width:8px; height:8px; border-radius:50%; background:#f43f5e;"></div> Fraud Cluster</div>
+                        <div style="display:flex; align-items:center; gap:8px;"><div style="width:8px; height:8px; border-radius:50%; background:#14b8a6;"></div> Trusted Node</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Financial Shield -->
+        <div id="tab-shield" class="tab-content hidden">
+            <div class="main-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Financial Shield (Insurance Pilot)</div>
+                    </div>
+                    <p style="color:var(--text-muted); font-size:14px; margin-bottom:32px;">Insure your high-risk, Vantix-cleared orders against RTO losses. We pay if they exit the delivery loop.</p>
+                    
+                    <div id="shieldStats" class="hidden">
+                        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:32px;">
+                            <div class="stat-card accent">
+                                <div class="label">Shielded Capital</div>
+                                <div class="value" id="statShielded">₹0</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="label">Active Claims</div>
+                                <div class="value" id="statClaims">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="shieldOptIn" style="padding:48px; text-align:center; background:rgba(20,184,166,0.03); border:1px dashed var(--accent); border-radius:24px;">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent); margin-bottom:16px; opacity:0.6;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        <h3 style="margin-bottom:8px;">Financial Shield is currently OFF</h3>
+                        <p style="color:var(--text-muted); font-size:14px; margin-bottom:24px;">Protect your bottom line. Enable autonomous RTO insurance today.</p>
+                        <button class="btn primary" onclick="optInShield()" style="width:auto; padding-left:32px; padding-right:32px;">Activate Insurance Pilot</button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Coverage Policy</div>
+                    </div>
+                    <div style="font-size:13px; color:var(--text-muted); line-height:1.7;">
+                        <p style="margin-bottom:16px;">Vantix Financial Shield offers a 100% loss recovery on orders marked "Safe" by our neural network that end in a fraudulent RTO.</p>
+                        <ul style="padding-left:20px; display:flex; flex-direction:column; gap:8px;">
+                            <li>Autonomous claim filing</li>
+                            <li>Weekly settlement cycles</li>
+                            <li>0.8% flat premium on shielded GMV</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="tab-alerts" class="tab-content hidden">
             <div class="card" style="max-width:800px; margin: 0 auto;">
                 <div class="card-header">
@@ -634,6 +700,8 @@ const risk = await client.analyzeOrder({
                 fetchWebhookSettings();
                 fetchRules();
                 fetchActionHistory();
+                fetchShieldStats();
+                initNeuralMap();
             } catch (e) {
                 err.textContent = e.message;
                 err.style.display = 'block';
@@ -933,6 +1001,40 @@ const risk = await client.analyzeOrder({
                 txt.textContent = 'HANDSHAKE FAILED';
                 txt.style.color = 'var(--danger)';
                 showToast('Authentication failed.');
+            }
+        }
+
+        async function fetchShieldStats() {
+            try {
+                const res = await fetch('/v1/auth/financial-shield/stats');
+                const data = await res.json();
+                if (data.is_active) {
+                    document.getElementById('shieldOptIn').classList.add('hidden');
+                    document.getElementById('shieldStats').classList.remove('hidden');
+                    document.getElementById('statShielded').textContent = `₹${data.shielded_capital.toLocaleString()}`;
+                    document.getElementById('statClaims').textContent = data.active_claims;
+                }
+            } catch (e) {}
+        }
+
+        async function optInShield() {
+            try {
+                const res = await fetch('/v1/auth/financial-shield/opt-in', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': getCookie('vp_csrf') }
+                });
+                if (res.ok) {
+                    showToast('Financial Shield Activated');
+                    fetchShieldStats();
+                }
+            } catch (e) {
+                showToast('Pilot activation failed.');
+            }
+        }
+
+        function initNeuralMap() {
+            if (window.NeuralMap) {
+                new NeuralMap('neuralMapCanvas');
             }
         }
 

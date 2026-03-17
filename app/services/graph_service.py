@@ -20,6 +20,40 @@ async def get_global_reputation(attribute_type: str, hashed_value: str) -> float
     except:
         return 0.5
 
+async def analyze_subgraph(uids: list[str]) -> dict:
+    """
+    GNN Pillar: Subgraph Scoring.
+    Evaluates the risk of a cluster based on the collective behavior of interconnected identities.
+    """
+    if not uids: return {"cluster_risk": 0.5, "is_fraud_ring": False}
+    
+    # In a real GNN, we'd run a forward pass on the adjacency matrix. 
+    # Here, we simulate by checking the aggregate trust of all connected nodes.
+    total_reputation = 0
+    fraud_signals = 0
+    
+    for uid_pair in uids:
+        # Expected format: "merchant:uid"
+        parts = uid_pair.split(":", 1)
+        if len(parts) < 2: continue
+        
+        # Simulate a node reputation lookup
+        # In a real system, this would be a persistent node_store
+        trust = await r.get(f"graph:node:trust:{uid_pair}")
+        val = float(trust) if trust else 0.5
+        total_reputation += val
+        if val < 0.3: fraud_signals += 1
+            
+    avg_trust = total_reputation / len(uids)
+    is_ring = fraud_signals > 2 or avg_trust < 0.4
+    
+    return {
+        "cluster_size": len(uids),
+        "avg_trust": avg_trust,
+        "is_fraud_ring": is_ring,
+        "threat_level": "CRITICAL" if is_ring else "STABLE"
+    }
+
 async def link_identity(uid: str, email: str | None, phone: str | None, address: str, ip: str, merchant_email: str):
     """
     Advanced Pillar: Fraud Ring Detection.
@@ -52,9 +86,7 @@ async def link_identity(uid: str, email: str | None, phone: str | None, address:
             
             res = await pipe.execute()
             
-        # 3. Analyze connections (Total of 8 pipeline results: 4 sadd/expire, 4 smembers)
-        # Note: Pipe results depend on implementation. Sadd/Expire return status.
-        # res looks like [int, bool, int, bool, int, bool, int, bool, set, set, set, set]
+        # 3. Analyze connections
         connections = set()
         for i in range(8, 12):
             connections |= set(res[i])
@@ -65,8 +97,10 @@ async def link_identity(uid: str, email: str | None, phone: str | None, address:
             if not conn.startswith(f"{merchant_email}:"):
                 other_merchant_hits += 1
         
-        # 4. Fetch Global Pulse Signals
-        # These are used by risk_service to adjust weights
+        # 4. Phase 12: Cluster GNN Intelligence
+        cluster_analysis = await analyze_subgraph(list(connections))
+        
+        # 5. Fetch Global Pulse Signals
         reputation_tasks = [
             get_global_reputation("addr", addr_hash),
             get_global_reputation("email", email_hash),
@@ -81,8 +115,9 @@ async def link_identity(uid: str, email: str | None, phone: str | None, address:
                 "addr": reputations[0],
                 "email": reputations[1],
                 "phone": reputations[2]
-            }
+            },
+            "cluster": cluster_analysis
         }
     except Exception as e:
         logging.error(f"identity linking failed: {e}")
-        return 0
+        return {"hits": 0, "reputation": {}, "cluster": {}}
