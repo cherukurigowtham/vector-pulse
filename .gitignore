@@ -71,5 +71,8 @@ docs/_build/
 # Pyenv
 .python-version
 
+# Local Databases
+*.db
+
 # Secrets
 .env

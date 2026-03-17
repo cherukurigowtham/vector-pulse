@@ -112,3 +112,4 @@ RISK_CONFIG_BOUNDS = {
 ADMIN_KEY = os.getenv("ADMIN_SECRET_KEY", "local-dev-admin-key")
 SESSION_COOKIE_SECURE = ENVIRONMENT == "production"
 RISK_FAIL_CLOSED = _env_bool("RISK_FAIL_CLOSED", False)  # Default to fail-open (safer for business)
+GLOBAL_PULSE_SALT = os.getenv("GLOBAL_PULSE_SALT", "vector-pulse-collective-defense-2024")

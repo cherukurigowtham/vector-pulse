@@ -28,11 +28,11 @@ jobs:
 
       - name: Run syntax checks
         run: |
-          python -m py_compile api_gateway.py tests/test_api_gateway.py tests/test_frontend_contracts.py
+          python -m py_compile app/main.py tests/test_api.py tests/test_frontend_contracts.py
 
       - name: Run unit and contract tests
         run: |
-          python -m pytest tests/test_api_gateway.py tests/test_frontend_contracts.py --asyncio-mode=auto -v
+          python -m pytest tests/test_api.py tests/test_frontend_contracts.py --asyncio-mode=auto -v
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -164,7 +164,7 @@ jobs:
 
       - name: Start API
         run: |
-          nohup uvicorn api_gateway:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 &
+          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 &
 
       - name: Wait for health endpoint
         run: |

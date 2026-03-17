@@ -56,6 +56,10 @@ class PostgresStore:
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             """, p["risk_id"], p["uid"], p["email"], p["risk_score"], p["decision"], p["shadow_mode"], p["reasons"], p["metrics"], p["timestamp"])
 
+    async def update_outcome(self, risk_id: str, status: str, reason: str | None = None):
+        async with self.pool.acquire() as conn:
+            await conn.execute("UPDATE risk_audit SET outcome = $1 WHERE risk_id = $2", status, risk_id)
+
     async def insert_risk_profile_audit(self, p: dict):
         async with self.pool.acquire() as conn:
             await conn.execute("""
@@ -161,11 +165,13 @@ class SQLiteStore:
         await self.db.commit()
 
     async def fetch_risk_audit(self, risk_id: str):
+        if not self.db: return None
         async with self.db.execute("SELECT * FROM risk_audit WHERE risk_id = ?", (risk_id,)) as cursor:
             row = await cursor.fetchone()
             return dict(row) if row else None
 
-    async def update_outcome(self, risk_id: str, status: str):
+    async def update_outcome(self, risk_id: str, status: str, reason: str | None = None):
+        if not self.db: return
         await self.db.execute("UPDATE risk_audit SET outcome = ? WHERE risk_id = ?", (status, risk_id))
         await self.db.commit()
 

@@ -2,7 +2,7 @@ import time
 import json
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
-from app.models import Order, RiskConfigUpdateRequest, MerchantSettingsUpdate, UpgradeRequest
+from app.models import Order, RiskConfigUpdateRequest, MerchantSettingsUpdate, UpgradeRequest, WebhookSettingsUpdate
 from app.core.config import RISK_CONFIG, RATE_LIMITS
 from app.core.redis import r
 from app.db.database import AUDIT_STORE
@@ -198,6 +198,49 @@ async def update_auth_settings(update: MerchantSettingsUpdate, request: Request)
         },
     }
 
+@router.get("/auth/settings/webhooks", summary="Get merchant webhook settings")
+async def get_webhook_settings(request: Request):
+    session_id = request.cookies.get("vp_session")
+    if not session_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    email = await r.get(f"session:{session_id}")
+    if not email:
+        raise HTTPException(status_code=401, detail="Session expired")
+
+    user_data = await r.hgetall(f"user:{email}")
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "email": email,
+        "webhook_url": user_data.get("alert_webhook_url", ""),
+        # Never return the secret itself for security
+        "has_secret": bool(user_data.get("webhook_secret"))
+    }
+
+@router.post("/auth/settings/webhooks", summary="Update merchant webhook settings")
+async def update_webhook_settings(update: WebhookSettingsUpdate, request: Request, _csrf = Depends(require_csrf)):
+    session_id = request.cookies.get("vp_session")
+    if not session_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    email = await r.get(f"session:{session_id}")
+    if not email:
+        raise HTTPException(status_code=401, detail="Session expired")
+
+    user_key = f"user:{email}"
+    fields = {}
+    if update.alert_webhook_url is not None:
+        fields["alert_webhook_url"] = update.alert_webhook_url.strip()
+    if update.webhook_secret is not None:
+        fields["webhook_secret"] = update.webhook_secret.strip()
+
+    if fields:
+        await r.hset(user_key, mapping=fields)
+
+    return {"status": "success", "webhook_url": fields.get("alert_webhook_url", "")}
+
 @router.post("/auth/upgrade-request", summary="Request a paid plan upgrade")
 async def request_upgrade(req: UpgradeRequest, request: Request, _csrf = Depends(require_csrf)):
     session_id = request.cookies.get("vp_session")
@@ -274,11 +317,19 @@ async def get_merchant_stats(merchant: dict = Depends(require_api_key)):
         "recent_activity": await AUDIT_STORE.fetch_recent_risk_audits(email, limit=5)
     }
 
+@router.get("/merchant/config", summary="Merchant: Fetch current risk profile weights")
+async def get_merchant_config(merchant: dict = Depends(require_api_key)):
+    return {
+        "email": merchant["email"],
+        "risk_config": await _resolve_risk_config(merchant["data"]),
+        "is_custom": _has_custom_risk_profile(merchant["data"])
+    }
+
 @router.post("/merchant/config", summary="Merchant: Update risk profile weights")
 async def update_merchant_config(req: RiskConfigUpdateRequest, merchant: dict = Depends(require_api_key), _csrf = Depends(require_csrf)):
     key_hash = merchant["key_hash"]
     profile = merchant["data"]
-    previous_config = _resolve_risk_config(profile)
+    previous_config = await _resolve_risk_config(profile)
     payload = req.model_dump(exclude_none=True)
     updates = {}
     for name, value in payload.items():
@@ -287,6 +338,6 @@ async def update_merchant_config(req: RiskConfigUpdateRequest, merchant: dict = 
     if updates:
         await r.hset(f"apikey:{key_hash}", mapping=updates)
     new_profile = await r.hgetall(f"apikey:{key_hash}")
-    new_config = _resolve_risk_config(new_profile)
+    new_config = await _resolve_risk_config(new_profile)
     await _log_risk_profile_change(merchant["email"], f"merchant:{merchant['email']}", "UPDATE", previous_config, new_config)
     return {"email": merchant["email"], "risk_config": new_config, "is_custom": _has_custom_risk_profile(new_profile)}

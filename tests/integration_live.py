@@ -5,7 +5,10 @@ import httpx
 import pytest
 import redis.asyncio as redis
 
-from api_gateway import _hash_key
+import hashlib
+
+def _hash_key(api_key: str) -> str:
+    return hashlib.sha256(api_key.encode()).hexdigest()
 
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")

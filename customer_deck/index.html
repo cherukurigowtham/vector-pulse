@@ -1,76 +1,496 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vector Pulse Customer Deck</title>
-  <style>
-    :root {
-      --bg: #08111f;
-      --panel: #101827;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-      --accent: #67e8f9;
-      --border: #22304a;
-    }
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
-      padding: 32px;
-    }
-    .shell {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    h1 {
-      margin: 0 0 8px;
-      font-size: 34px;
-    }
-    p {
-      margin: 0 0 24px;
-      color: var(--muted);
-      font-size: 18px;
-    }
-    .slide {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 18px;
-      margin-bottom: 24px;
-    }
-    .slide h2 {
-      margin: 0 0 12px;
-      font-size: 18px;
-      color: var(--accent);
-    }
-    img {
-      width: 100%;
-      display: block;
-      border-radius: 12px;
-      background: #0b1220;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector-Pulse | Autonomous RTO Shield</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #05070a;
+            --panel: rgba(16, 24, 39, 0.8);
+            --accent-cyan: #67e8f9;
+            --accent-blue: #3b82f6;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+            --gradient: linear-gradient(135deg, #67e8f9 0%, #3b82f6 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        .presentation {
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            transition: transform 0.8s cubic-bezier(0.85, 0, 0.15, 1);
+        }
+
+        .slide {
+            min-width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .content-card {
+            background: var(--panel);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 32px;
+            padding: 60px;
+            max-width: 1100px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .full-slide {
+            grid-template-columns: 1fr;
+            text-align: center;
+        }
+
+        .slide-text h2 {
+            font-size: 56px;
+            font-weight: 800;
+            margin-bottom: 24px;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .slide-text p {
+            font-size: 20px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .visual-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .visual-area img {
+            max-width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            text-align: left;
+        }
+
+        .feature-item {
+            background: rgba(255,255,255,0.03);
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+
+        .feature-item h3 {
+            color: var(--accent-cyan);
+            margin-bottom: 8px;
+            font-size: 20px;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            display: flex;
+            gap: 15px;
+            z-index: 100;
+        }
+
+        .control-btn {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-btn:hover {
+            background: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 4px;
+            background: var(--gradient);
+            transition: width 0.3s;
+            z-index: 1000;
+        }
+
+        /* ROI Calculator Styles */
+        .calculator {
+            background: rgba(255,255,255,0.05);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: left;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .input-group input {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 18px;
+        }
+
+        .roi-result {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .roi-value {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--accent-cyan);
+        }
+
+        .plan-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            padding: 24px;
+            border-radius: 20px;
+            transition: scale 0.3s;
+        }
+
+        .plan-card.featured {
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.05);
+            scale: 1.05;
+        }
+
+        @media (max-width: 900px) {
+            .content-card {
+                grid-template-columns: 1fr;
+                padding: 30px;
+                overflow-y: auto;
+            }
+            .visual-area { display: none; }
+        }
+    </style>
 </head>
 <body>
-  <div class="shell">
-    <h1>Vector Pulse Customer Deck</h1>
-    <p>Customer-focused slide order. Use this page as the canonical sequence for sales presentations and pilot discussions.</p>
+    <div class="progress-bar" id="progress"></div>
+    <div class="presentation" id="deck">
+        
+        <!-- Slide 1: Home -->
+        <section class="slide">
+            <div class="content-card">
+                <div class="slide-text">
+                    <h2>The Autonomous RTO Shield</h2>
+                    <p>Stop RTO losses today. Scale your D2C brand with Indian E-commerce's most advanced fraud prevention engine.</p>
+                    <div style="display: flex; gap: 10px;">
+                        <span style="background: rgba(103, 232, 249, 0.1); color: var(--accent-cyan); padding: 8px 16px; border-radius: 50px; font-size: 14px; font-weight: 600;">v5.0 Core ML</span>
+                        <span style="background: rgba(255, 255, 255, 0.05); padding: 8px 16px; border-radius: 50px; font-size: 14px;">Built for India</span>
+                    </div>
+                </div>
+                <div class="visual-area">
+                    <img src="./assets/hero.png" alt="Vector-Pulse Dashboard">
+                </div>
+            </div>
+        </section>
 
-    <div class="slide"><h2>01. Title</h2><img src="./assets/01.svg" alt="Slide 1" /></div>
-    <div class="slide"><h2>02. Merchant Problem</h2><img src="./assets/02.svg" alt="Slide 2" /></div>
-    <div class="slide"><h2>03. Problems We Solve</h2><img src="./assets/03.svg" alt="Slide 3" /></div>
-    <div class="slide"><h2>04. Product Flow</h2><img src="./assets/04.svg" alt="Slide 4" /></div>
-    <div class="slide"><h2>05. Solution Layer</h2><img src="./assets/05.svg" alt="Slide 5" /></div>
-    <div class="slide"><h2>06. Target Customer</h2><img src="./assets/06.svg" alt="Slide 6" /></div>
-    <div class="slide"><h2>07. Positioning</h2><img src="./assets/07.svg" alt="Slide 7" /></div>
-    <div class="slide"><h2>08. Pilot Model</h2><img src="./assets/08.svg" alt="Slide 8" /></div>
-    <div class="slide"><h2>09. Pilot Journey</h2><img src="./assets/09.svg" alt="Slide 9" /></div>
-    <div class="slide"><h2>10. Success Metrics</h2><img src="./assets/10.svg" alt="Slide 10" /></div>
-    <div class="slide"><h2>11. Roadmap For Your Team</h2><img src="./assets/11.svg" alt="Slide 11" /></div>
-    <div class="slide"><h2>12. Long-Term Value</h2><img src="./assets/12.svg" alt="Slide 12" /></div>
-    <div class="slide"><h2>13. Ask / Pilot Start</h2><img src="./assets/13.svg" alt="Slide 13" /></div>
-  </div>
+        <!-- Slide 2: Problem -->
+        <section class="slide">
+            <div class="content-card">
+                <div class="slide-text">
+                    <h2>RTO is Your Biggest Growth Killer</h2>
+                    <p>Every fake COD order costs you ₹150 - ₹300 in shipping and blocked inventory. For many brands, this is 15% of their total revenue GONE.</p>
+                    <div class="feature-item" style="border-left: 4px solid #ef4444;">
+                        <h3 style="color: #ef4444;">₹10,000 Cr+</h3>
+                        <p>Total annual RTO loss for Indian D2C brands.</p>
+                    </div>
+                </div>
+                <div class="visual-area">
+                    <img src="./assets/problem.png" alt="The RTO Problem">
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 3: Solution -->
+        <section class="slide">
+            <div class="content-card">
+                <div class="slide-text">
+                    <h2>Autonomous AI Intelligence</h2>
+                    <p>Vector-Pulse doesn't just block IPs; it understands human behavior and learns with every transaction.</p>
+                    <div class="feature-grid">
+                        <div class="feature-item">
+                            <h3>Predictive ML</h3>
+                            <p>Anticipates fraud based on 50+ variables.</p>
+                        </div>
+                        <div class="feature-item">
+                            <h3>Self-Learning</h3>
+                            <p>Neural weights adapt to your store patterns.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="visual-area">
+                    <img src="./assets/solution.png" alt="AI Solution">
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 4: Features -->
+        <section class="slide">
+            <div class="content-card full-slide">
+                <div class="slide-text">
+                    <h2>Enterprise Features, Startup Speed</h2>
+                    <div class="feature-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top: 40px;">
+                        <div class="feature-item">
+                            <h3>Global Identity Graph</h3>
+                            <p>Track high-risk identifiers across 500+ merchants.</p>
+                        </div>
+                        <div class="feature-item">
+                            <h3>Behavioral DNA</h3>
+                            <p>Detect bot speed and typing patterns in 5ms.</p>
+                        </div>
+                        <div class="feature-item">
+                            <h3>Semantic Clustering</h3>
+                            <p>Spot coordinated 'Fraud Rings' instantly.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 5: XAI -->
+        <section class="slide">
+            <div class="content-card">
+                <div class="visual-area">
+                    <div style="background: #000; padding: 20px; border-radius: 15px; font-family: monospace; font-size: 14px; border: 1px solid var(--border);">
+                        <span style="color: #67e8f9;">{</span><br>
+                        &nbsp;&nbsp;"decision": <span style="color: #fbbf24;">"FORCE_PREPAID"</span>,<br>
+                        &nbsp;&nbsp;"score": <span style="color: #ef4444;">88</span>,<br>
+                        &nbsp;&nbsp;"impact_analysis": {<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;"VPN": +32,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;"TYPING_ANOMALY": +15,<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;"GLOBAL_BLACKLIST": +41<br>
+                        &nbsp;&nbsp;}<br>
+                        <span style="color: #67e8f9;">}</span>
+                    </div>
+                </div>
+                <div class="slide-text">
+                    <h2>Full Transparency (XAI)</h2>
+                    <p>No more "Black Box" algorithms. Vector-Pulse tells you exactly WHY an order was flagged, giving your team the confidence to ship or block.</p>
+                    <p>Every decision comes with a complete Impact Report.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 6: ROI -->
+        <section class="slide">
+            <div class="content-card">
+                <div class="slide-text">
+                    <h2>Calculate Your Savings</h2>
+                    <p>Stop guessing the value. See exactly how much profit Vector-Pulse unlocks for your business.</p>
+                    <div class="calculator">
+                        <div class="input-group">
+                            <label>Monthly Orders</label>
+                            <input type="number" id="orders" value="1000" oninput="calculateROI()">
+                        </div>
+                        <div class="input-group">
+                            <label>Current RTO %</label>
+                            <input type="number" id="rtorate" value="20" oninput="calculateROI()">
+                        </div>
+                        <div class="roi-result">
+                            <p>Monthly Savings Estimate</p>
+                            <div class="roi-value" id="savings-val">₹42,000</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="visual-area" style="text-align: left;">
+                    <div class="feature-item" style="border-left: 4px solid var(--accent-cyan);">
+                        <h3>30% Reduction</h3>
+                        <p>Average RTO drop seen by pilot merchants within the first 30 days.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 7: Pricing -->
+        <section class="slide">
+            <div class="content-card full-slide">
+                <div class="slide-text">
+                    <h2>Flexible Plans for Every Stage</h2>
+                    <div class="feature-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top: 40px; gap: 30px;">
+                        <div class="plan-card">
+                            <h3>Starter</h3>
+                            <p style="font-size: 32px; color: white; margin-bottom: 15px;">₹0 <small style="font-size: 14px;">/mo</small></p>
+                            <ul style="text-align: left; list-style: none; color: var(--text-secondary);">
+                                <li>✓ 1,000 API Req</li>
+                                <li>✓ Core Risk Rules</li>
+                                <li>✓ Community Support</li>
+                            </ul>
+                        </div>
+                        <div class="plan-card featured">
+                            <h3>Growth</h3>
+                            <p style="font-size: 32px; color: white; margin-bottom: 15px;">₹2,999 <small style="font-size: 14px;">/mo</small></p>
+                            <ul style="text-align: left; list-style: none; color: var(--text-secondary);">
+                                <li>✓ 10,000 API Req</li>
+                                <li>✓ Neural Learning</li>
+                                <li>✓ Identity Cache</li>
+                                <li>✓ 24/7 Priority</li>
+                            </ul>
+                        </div>
+                        <div class="plan-card">
+                            <h3>Managed</h3>
+                            <p style="font-size: 32px; color: white; margin-bottom: 15px;">Custom</p>
+                            <ul style="text-align: left; list-style: none; color: var(--text-secondary);">
+                                <li>✓ Unlimited Req</li>
+                                <li>✓ Dedicated Instance</li>
+                                <li>✓ Custom ML Models</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 8: Integration -->
+        <section class="slide">
+            <div class="content-card">
+                <div class="slide-text">
+                    <h2>Integration Made Easy</h2>
+                    <p>Go live in minutes, not days. Vector-Pulse is designed to fit seamlessly into your existing checkout flow.</p>
+                    <div class="feature-grid" style="grid-template-columns: 1fr;">
+                        <div class="feature-item">
+                            <h3>1. Generate API Key</h3>
+                            <p>Instant access via your merchant dashboard.</p>
+                        </div>
+                        <div class="feature-item">
+                            <h3>2. Connect Checkout</h3>
+                            <p>One simple API call during the 'Place Order' event.</p>
+                        </div>
+                        <div class="feature-item">
+                            <h3>3. Resolve RTO</h3>
+                            <p>Get instant decisions (COD vs. Prepaid) and stop losses.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="visual-area">
+                    <img src="./assets/integration.png" alt="Easy Integration">
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 9: CTA -->
+        <section class="slide">
+            <div class="content-card full-slide">
+                <div class="slide-text">
+                    <h2>Ready to Stop The Leakage?</h2>
+                    <p>Integrate Vector-Pulse in under 15 minutes. Start with our free pilot program today.</p>
+                    <button class="control-btn" style="padding: 20px 60px; font-size: 20px; background: var(--gradient); border: none; margin-top: 30px;">Get Your API Key</button>
+                    <p style="margin-top: 40px;">vector-pulse.tech | contact@vector-pulse.tech</p>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <div class="controls">
+        <button class="control-btn" onclick="prevSlide()">← Prev</button>
+        <button class="control-btn" onclick="nextSlide()">Next →</button>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const totalSlides = 9;
+        const deck = document.getElementById('deck');
+        const progress = document.getElementById('progress');
+
+        function updateDeck() {
+            deck.style.transform = `translateX(-${currentSlide * 100}vw)`;
+            progress.style.width = `${((currentSlide + 1) / totalSlides) * 100}%`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateDeck();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateDeck();
+            }
+        }
+
+        function calculateROI() {
+            const orders = document.getElementById('orders').value || 1000;
+            const rtoRate = document.getElementById('rtorate').value || 20;
+            
+            // Assume Average Order Value = 2500, RTO cost = 200, VP reduction = 30%
+            const rtoOrders = (orders * rtoRate) / 100;
+            const savings = rtoOrders * 200 * 0.35; // 35% reduction conservative estimate
+            
+            document.getElementById('savings-val').innerText = '₹' + Math.round(savings).toLocaleString();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+            if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        // Initialize progress
+        updateDeck();
+    </script>
 </body>
 </html>

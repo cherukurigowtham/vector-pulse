@@ -13,7 +13,7 @@ The app-focused workflow lives in [.github/workflows/app-ci.yml](/Users/gowthamc
 ## 1. Unit Tests
 Fast, logic-only tests with mocks. Does not require external services.
 ```bash
-python3 -m unittest tests/test_api_gateway.py
+python3 -m unittest tests/test_api.py
 ```
 
 ## 2. Live Integration Tests

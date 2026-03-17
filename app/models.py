@@ -85,6 +85,13 @@ class AuthRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=8, max_length=128)
+
 class MerchantSettingsUpdate(BaseModel):
     company_name: str | None = None
     category: str | None = None
@@ -102,3 +109,7 @@ class OutcomeUpdate(BaseModel):
     risk_id: str
     status: Literal["DELIVERED", "RTO", "FRAUD_CONFIRMED"]
     reason: str | None = Field(None, max_length=200)
+
+class WebhookSettingsUpdate(BaseModel):
+    alert_webhook_url: str | None = Field(None, max_length=512)
+    webhook_secret: str | None = Field(None, min_length=16, max_length=64)

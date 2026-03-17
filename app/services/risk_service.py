@@ -8,6 +8,7 @@ import json
 import math
 from app.models import Order
 from app.core.redis import r
+from app.services.webhook_dispatcher import dispatch_alert
 from app.core.geoip import GEO_READER
 from app.db.database import AUDIT_STORE
 from app.services.graph_service import link_identity
@@ -229,20 +230,20 @@ async def _check_geo_velocity(uid: str, ip: str, device_hash: str | None, risk_c
             last_geo = json.loads(last_geo_raw)
             last_lat, last_lon, last_ts = last_geo["lat"], last_geo["lon"], last_geo["ts"]
             
-            dist_km = _calculate_haversine(last_lat, last_lon, lat, lon)
-            time_diff_hours = (now - last_ts) / 3600.0
+            # Delegate complex spatial-temporal evaluation to Rust
+            is_impossible_travel, _speed = vector_pulse.evaluate_geo_velocity(
+                last_lat, last_lon, last_ts,
+                lat, lon, now,
+                800.0 # Speed threshold in km/h
+            )
             
-            if time_diff_hours > 0:
-                speed_kmh = dist_km / time_diff_hours
-                # If speed > 800 km/h (speed of a commercial jet), flag as impossible travel
-                if speed_kmh > 800 and dist_km > 50:
-                    is_impossible_travel = True
-                    logging.warning(f"Impossible Travel Detected: {speed_kmh:.1f} km/h for device {device_hash}")
+            if is_impossible_travel:
+                logging.warning(f"Impossible Travel Detected by Rust Engine: device {device_hash}")
             
         await r.setex(geo_key, 3600 * 24, json.dumps({"lat": lat, "lon": lon, "ts": now}))
         return is_impossible_travel
     except Exception as e:
-        logging.error(f"Geo Velocity Check Failed: {e}")
+        logging.error(f"Geo Velocity Check (Rust Bridge) Failed: {e}")
         return False
 
 def _check_time_anomaly() -> bool:
@@ -321,7 +322,7 @@ async def _check_identity_cluster(uid: str, address: str, pin: str, ip: str, mer
         logging.error(f"Identity Cluster Check Failed: {e}")
         return False, 0.0
 
-def _calculate_risk_score(velocity_flag, sybil_flag, anomaly_flag, identity_flag, cohort_flag, trust_score, vpn_flag, global_network_flag, gibberish_flag, device_velocity_flag, suspicious_name_flag, geo_velocity_flag, time_anomaly_flag, bot_speed_flag, suspicious_phone_flag, disposable_email_flag, email_name_mismatch_flag, poor_address_flag, high_risk_pin_flag, risk_config, consortium_hits=0, is_quarantined=False):
+def _calculate_risk_score(velocity_flag, sybil_flag, anomaly_flag, identity_flag, cohort_flag, trust_score, vpn_flag, global_network_flag, gibberish_flag, device_velocity_flag, suspicious_name_flag, geo_velocity_flag, time_anomaly_flag, bot_speed_flag, suspicious_phone_flag, disposable_email_flag, email_name_mismatch_flag, poor_address_flag, high_risk_pin_flag, risk_config, consortium_hits=0, is_quarantined=False, reputation_map=None):
     """
     Advanced Pillar: Cognitive Ensemble & Explainability.
     Calculates total score and returns XAI Impact Breakdown.
@@ -369,8 +370,21 @@ def _calculate_risk_score(velocity_flag, sybil_flag, anomaly_flag, identity_flag
         impacts["GLOBAL_QUARANTINE"] = 40.0 # High fixed impact for quarantine
         
     if consortium_hits > 0:
-        c_impact = min(3, consortium_hits) * risk_config.get("global_network_weight", 15.0)
+        c_impact = min(5, consortium_hits) * risk_config.get("global_network_weight", 15.0)
         impacts["FRAUD_RING_LINK"] = c_impact
+
+    # Pillar 2: Global Pulse Reputation Signals
+    if reputation_map:
+        # Penalize low reputation (Trust below 0.5)
+        # Reward high reputation (Trust above 0.7)
+        avg_rep = sum(reputation_map.values()) / len(reputation_map)
+        
+        if avg_rep < 0.4:
+            rep_penalty = (0.5 - avg_rep) * 40.0 # Significant penalty for poor global standing
+            impacts["GLOBAL_REPUTATION_PENALTY"] = float(rep_penalty)
+        elif avg_rep > 0.8:
+            rep_bonus = (avg_rep - 0.8) * 20.0 # Reward for consistent clean history across network
+            impacts["GLOBAL_REPUTATION_BOOST"] = float(-rep_bonus)
 
     # Sum initial impacts
     score = sum(impacts.values())
@@ -482,16 +496,30 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
         trust_score, is_vpn_flag, is_global_velocity_flag, is_global_sybil_flag, 
         is_device_velocity_flag, is_geo_velocity_flag, is_high_risk_pin_flag, 
         is_disposable_email_flag, is_identity_flag, (is_cluster_flag, cluster_score),
-        consortium_hits, is_quarantined
+        graph_res, is_quarantined
     ) = results
     
+    consortium_hits = graph_res.get("hits", 0)
+    reputation_map = graph_res.get("reputation", {})
+    
     is_global_network_flag = is_global_velocity_flag or is_global_sybil_flag or (consortium_hits > 0) or is_quarantined
+    
+    # Pillar 8: Real-time Attack Alerts
+    if is_quarantined or consortium_hits >= 3:
+        # Proactive alerting for coordinated waves
+        alert_type = "GLOBAL_QUARANTINE_TRIGGERED" if is_quarantined else "COORDINATED_RING_DETECTED"
+        await dispatch_alert(merchant_email, alert_type, {
+            "uid": uid,
+            "consortium_hits": consortium_hits,
+            "is_quarantined": is_quarantined,
+            "flags": [f for f in results if isinstance(f, bool) and f] # Simple summary of active flags
+        })
 
     # Pillar 4: Behavioral DNA
     behavioral_flags, behavioral_score = _check_behavioral_dna(order, risk_config)
     
     # Pillar 1 (v4): Cognitive Ensemble Scoring
-    risk_score, xai_impacts = _calculate_risk_score(is_velocity_flag, is_sybil_flag, is_price_anomaly, is_identity_flag, is_cluster_flag, trust_score, is_vpn_flag, is_global_network_flag, is_gibberish_flag, is_device_velocity_flag, is_suspicious_name_flag, is_geo_velocity_flag, is_time_anomaly_flag, is_bot_speed_flag, is_suspicious_phone_flag, is_disposable_email_flag, is_email_name_mismatch_flag, is_poor_address_flag, is_high_risk_pin_flag, risk_config, consortium_hits=consortium_hits, is_quarantined=is_quarantined)
+    risk_score, xai_impacts = _calculate_risk_score(is_velocity_flag, is_sybil_flag, is_price_anomaly, is_identity_flag, is_cluster_flag, trust_score, is_vpn_flag, is_global_network_flag, is_gibberish_flag, is_device_velocity_flag, is_suspicious_name_flag, is_geo_velocity_flag, is_time_anomaly_flag, is_bot_speed_flag, is_suspicious_phone_flag, is_disposable_email_flag, is_email_name_mismatch_flag, is_poor_address_flag, is_high_risk_pin_flag, risk_config, consortium_hits=consortium_hits, is_quarantined=is_quarantined, reputation_map=reputation_map)
     
     # Add Behavioral Impacts to XAI
     if behavioral_score > 0:
@@ -523,5 +551,10 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
     if is_high_risk_pin_flag: reasons.append("HIGH_RISK_PIN")
     if is_cluster_flag: reasons.append("IDENTITY_CLUSTER_DETECTED")
     if trust_score < risk_config["trust_floor"] and trust_score != 50.0: reasons.append("LOW_TRUST_SCORE")
+    
+    # Global Pulse Indicators
+    avg_rep = sum(reputation_map.values()) / len(reputation_map) if reputation_map else 0.5
+    if avg_rep < 0.4: reasons.append("GLOBAL_REPUTATION_WARNING")
+    elif avg_rep > 0.8: reasons.append("NETWORK_WIDE_TRUSTED_USER")
     
     return {"score": risk_score, "flags": reasons, "trust_score": trust_score, "xai_impacts": xai_impacts, "metrics": {"velocity": is_velocity_flag, "sybil": is_sybil_flag, "price": is_price_anomaly, "trust": trust_score, "vpn": is_vpn_flag, "global_network": is_global_network_flag, "is_quarantined": is_quarantined, "consortium_hits": consortium_hits, "gibberish": is_gibberish_flag, "device_velocity": is_device_velocity_flag, "suspicious_name": is_suspicious_name_flag, "geo_velocity": is_geo_velocity_flag, "time_anomaly": is_time_anomaly_flag, "bot_speed": is_bot_speed_flag, "suspicious_phone": is_suspicious_phone_flag, "disposable_email": is_disposable_email_flag, "email_name_mismatch": is_email_name_mismatch_flag, "poor_address": is_poor_address_flag, "high_risk_pin": is_high_risk_pin_flag, "order_hash": order_hash}}

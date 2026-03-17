@@ -6,7 +6,8 @@ API_URL = "http://127.0.0.1:8083"
 
 @pytest.fixture
 async def api_client():
-    async with httpx.AsyncClient(base_url=API_URL, timeout=10.0) as client:
+    from app.main import app
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", timeout=10.0) as client:
         yield client
 
 @pytest.mark.asyncio

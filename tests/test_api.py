@@ -2,7 +2,7 @@ import unittest
 import json
 import time
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 from app.main import app
 from app.core.config import ADMIN_KEY
 
@@ -36,7 +36,8 @@ class TestVectorPulseAPI(unittest.TestCase):
     @patch("app.routers.public.r.pipeline")
     def test_register_api_key_success(self, mock_pipe_ctx, mock_limit):
         mock_limit.return_value = False
-        mock_pipe = AsyncMock()
+        mock_pipe = MagicMock()
+        mock_pipe.execute = AsyncMock()
         mock_pipe_ctx.return_value.__aenter__.return_value = mock_pipe
         
         response = self.client.post(
@@ -64,7 +65,8 @@ class TestVectorPulseAPI(unittest.TestCase):
             mock_redis.get = AsyncMock(return_value=b"10")
             
             # Mock Pipeline for Background Task
-            mock_pipe = AsyncMock()
+            mock_pipe = MagicMock()
+            mock_pipe.execute = AsyncMock()
             mock_redis.pipeline.return_value.__aenter__.return_value = mock_pipe
             
             # Mock Analysis result

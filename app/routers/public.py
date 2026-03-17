@@ -3,7 +3,10 @@ import secrets
 import logging
 import hashlib
 from fastapi import APIRouter, HTTPException, Request, Response
-from app.models import PublicRegisterRequest, PilotRequest, RegisterRequest, AuthRequest
+from app.models import (
+    PublicRegisterRequest, PilotRequest, RegisterRequest, AuthRequest,
+    ForgotPasswordRequest, ResetPasswordRequest
+)
 from app.core.redis import r
 from app.core.helpers import (
     _log_event, _key_metadata, _is_admin_email, 
@@ -77,6 +80,41 @@ async def login(req: AuthRequest, response: Response, request: Request):
         
     await _create_session(req.email, response, request)
     return {"message": "Logged in successfully"}
+
+@router.post("/auth/forgot-password", summary="Initiate password recovery")
+async def forgot_password(req: ForgotPasswordRequest, request: Request):
+    client_ip = getattr(request.client, "host", "unknown")
+    if await _sliding_window_rate_limit(f"ratelimit:forgot_pwd:{client_ip}", 3, 3600):
+        raise HTTPException(status_code=429, detail="Too many reset attempts. Check again in an hour.")
+
+    if not await r.hexists(f"user:{req.email}", "pwd_hash"):
+        # Generic response to prevent email enumeration
+        return {"message": "If this email is registered, you will receive a reset link."}
+
+    reset_token = secrets.token_urlsafe(32)
+    # Token valid for 1 hour
+    await r.setex(f"pwd_reset:{reset_token}", 3600, req.email)
+    
+    # In a real app, send email here. For now, we log it for the CEO audit.
+    logging.info(f"PASSWORD_RESET_TOKEN generated for {req.email}: {reset_token}")
+    return {"message": "If this email is registered, you will receive a reset link.", "debug_token": reset_token}
+
+@router.post("/auth/reset-password", summary="Complete password recovery")
+async def reset_password(req: ResetPasswordRequest):
+    email = await r.get(f"pwd_reset:{req.token}")
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    
+    salt = secrets.token_hex(16)
+    pwd_hash = _hash_password(req.new_password, salt)
+    
+    async with r.pipeline() as pipe:
+        pipe.hset(f"user:{email}", mapping={"pwd_hash": pwd_hash, "salt": salt})
+        pipe.delete(f"pwd_reset:{req.token}")
+        await pipe.execute()
+        
+    _log_event("password_reset_complete", email=email)
+    return {"message": "Password updated successfully. You can now log in."}
 
 @router.post("/auth/logout", summary="End the current session")
 async def logout(request: Request, response: Response):

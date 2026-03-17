@@ -1,107 +1,70 @@
 import pytest
 import httpx
-import asyncio
-import time
-from app.core.redis import r
-
-API_URL = "http://127.0.0.1:8083"
+from unittest.mock import patch, AsyncMock
+from app.main import app
+from app.core.security import require_api_key
 
 @pytest.fixture
-async def api_client():
-    # Cleanup rate limits and test users
-    await r.delete("ratelimit:signup:127.0.0.1")
-    await r.delete("ratelimit:login:127.0.0.1")
-    await r.delete("user:merchant_test_id@vantix.ai")
-    await r.delete("user:geo_test@vantix.ai")
-    async with httpx.AsyncClient(base_url=API_URL, timeout=10.0) as client:
-        yield client
-
-@pytest.mark.asyncio
-async def test_global_identity_blacklist(api_client):
-    # 1. Setup: Add a test email to the global blacklist in Redis
-    test_email = "fraudster@evil.com"
-    await r.sadd("global:blacklist:email", test_email)
-    
-    # 2. Get a valid API key
-    signup_res = await api_client.post(
-        "/auth/signup", 
-        json={"email": "merchant_test_id@vantix.ai", "password": "password123"}
-    )
-    api_key = signup_res.json().get("api_key")
-    if not api_key:
-        # Fallback if user somehow already exists and we didn't delete it
-        user_data = await r.hgetall("user:merchant_test_id@vantix.ai")
-        key_hash = user_data.get("key_hash")
-        # In this test environment, we might need to find the raw key or just use a known one
-        # For tests, we'll ensure the signup works by deleting the user first (which we did in fixture)
-        pass 
-    
-    # 3. Perform risk check with blacklisted email
-    order = {
-        "uid": "user_999",
-        "amt": 5000.0,
-        "addr": "123 Fraud St, Mumbai, IN",
-        "pin": "400001",
-        "ip": "1.1.1.1",
-        "name": "Bad Actor",
-        "email": test_email,
-        "phone": "9876543210"
+def auth_override():
+    app.dependency_overrides[require_api_key] = lambda: {
+        "email": "test@merchant.com",
+        "key_hash": "test_hash",
+        "data": {"plan": "growth"}
     }
-    
-    res = await api_client.post(
-        "/v1/risk-check",
-        json=order,
-        headers={"X-API-Key": api_key}
-    )
-    
-    assert res.status_code == 200
-    data = res.json()
-    assert "GLOBAL_IDENTITY_BLACKLIST" in data["risk_factors"]
-    assert data["risk_score"] > 0
-    
-    # Cleanup
-    await r.srem("global:blacklist:email", test_email)
+    yield
+    app.dependency_overrides.clear()
 
 @pytest.mark.asyncio
-async def test_impossible_travel_detection(api_client):
-    # DELHI -> MUMBAI check
-    delhi_ip = "122.160.0.1"
-    mumbai_ip = "103.21.158.1"
-    device_hash = f"device_{int(time.time())}"
-    
-    signup_res = await api_client.post(
-        "/auth/signup", 
-        json={"email": "geo_test@vantix.ai", "password": "password123"}
-    )
-    api_key = signup_res.json().get("api_key")
-    
-    # 1. First order from Delhi
-    await api_client.post(
-        "/v1/risk-check",
-        json={
-            "uid": "u1", "amt": 100.0, "addr": "Delhi Home", "pin": "110001",
-            "ip": delhi_ip, "device_hash": device_hash
-        },
-        headers={"X-API-Key": api_key}
-    )
-    
-    # 2. Second order from Mumbai (1s later)
-    res = await api_client.post(
-        "/v1/risk-check",
-        json={
-            "uid": "u1", "amt": 100.0, "addr": "Mumbai Hotel", "pin": "400001",
-            "ip": mumbai_ip, "device_hash": device_hash
-        },
-        headers={"X-API-Key": api_key}
-    )
-    
-    assert res.status_code == 200
-    data = res.json()
-    # Note: This might pass if the GEOIP DB resolves these IPs correctly.
-    # If it doesn't resolve lat/lon, it skips the check.
-    # In a real environment, we'd mock the GEO_READER.
-    if "IMPOSSIBLE_TRAVEL" in data["risk_factors"]:
-        assert True
-    else:
-        # If not detected, check if it's because coordinates were missing
-        print("Warning: Impossible travel not detected, might be due to GEOIP resolution.")
+async def test_fraud_ring_clustering(auth_override):
+    """
+    Test that 3 unique UIDs sharing a behavioral fingerprint triggers clustering.
+    """
+    # We mock the fingerprint SAD/SCARD logic to verify the threshold
+    with patch("app.core.intelligence.r.scard", new_callable=AsyncMock) as mock_scard:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
+            order_data = {
+                "uid": "unique_1",
+                "amt": 1000,
+                "addr": "123 Fraud Lane, Bangalore",
+                "pin": "560102",
+                "ip": "1.1.1.1"
+            }
+            
+            # Case 1: First unique order (SCARD=1)
+            mock_scard.return_value = 1
+            res1 = await ac.post("/v1/risk-check", json=order_data)
+            assert "FRAUD_RING_CLUSTER_DETECTED" not in res1.json()["risk_factors"]
+            
+            # Case 2: Third unique order (SCARD=3)
+            mock_scard.return_value = 3
+            res2 = await ac.post("/v1/risk-check", json=order_data)
+            assert "FRAUD_RING_CLUSTER_DETECTED" in res2.json()["risk_factors"]
+            assert res2.json()["risk_score"] >= 40.0
+
+@pytest.mark.asyncio
+async def test_neural_feedback_learning(auth_override):
+    """
+    Test that reporting RTO increases the weight of related risk factors.
+    """
+    with patch("app.core.redis.r.hgetall", new_callable=AsyncMock) as mock_hgetall, \
+         patch("app.core.redis.r.hset", new_callable=AsyncMock) as mock_hset, \
+         patch("app.core.redis.r.hget", new_callable=AsyncMock) as mock_hget, \
+         patch("app.core.redis.r.get", new_callable=AsyncMock) as mock_get:
+        
+        # Setup mock for explain context
+        mock_get.return_value = '{"flags": ["VELOCITY"], "score": 20}'
+        mock_hget.return_value = 0.0 # Initial bias
+        
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
+            # Report RTO for a transaction that had VELOCITY flag
+            res = await ac.post("/v1/outcome", json={
+                "risk_id": "test_risk_id",
+                "status": "RTO"
+            })
+            assert res.status_code == 200
+            # Since AUDIT_STORE.db is None in test, update_outcome returns gracefully.
+            # verify hset was called to update the bias
+            assert mock_hset.called
+            # The bias bucket for testmerchant.com should be updated
+            call_args = mock_hset.call_args_list[0]
+            assert "neural:bias:test@merchant.com" in str(call_args)

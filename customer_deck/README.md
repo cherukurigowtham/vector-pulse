@@ -1,26 +1,26 @@
-# Customer Deck Package
+# Vector-Pulse Customer Presentation
 
-This folder contains the customer sales deck as an ordered bundle.
+This is the canonical sales presentation for Vector-Pulse. It is built as an interactive, premium HTML/CSS slide deck designed to be presented to e-commerce merchants and D2C brands.
 
-## Files
-- [index.html](/Users/gowthamcherukuri/Desktop/vector_pulse/customer_deck/index.html): browser view of the deck in sequence
-- [CUSTOMER_DECK.md](/Users/gowthamcherukuri/Desktop/vector_pulse/CUSTOMER_DECK.md): customer slide-by-slide script
-- [slides](/Users/gowthamcherukuri/Desktop/vector_pulse/slides): shared slide assets
+## 🚀 How to Present
+1. Open `customer_deck/index.html` in any modern web browser (Chrome/Edge/Safari).
+2. Use **Left/Right Arrow Keys** or **Spacebar** to navigate through the slides.
+3. On the **ROI Calculator** slide, you can input the merchant's actual data to show them their personalized savings.
 
-## Customer Slide Order
-1. [slide-01-title.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-01-title.svg)
-2. [slide-02-problem.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-02-problem.svg)
-3. [slide-06-problems-we-solve.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-06-problems-we-solve.svg)
-4. [slide-05-product-flow.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-05-product-flow.svg)
-5. [slide-04-solution.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-04-solution.svg)
-6. [slide-07-target-customer.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-07-target-customer.svg)
-7. [slide-09-positioning.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-09-positioning.svg)
-8. [slide-08-business-model.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-08-business-model.svg)
-9. [slide-11-gtm.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-11-gtm.svg)
-10. [slide-10-traction.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-10-traction.svg)
-11. [slide-12-roadmap.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-12-roadmap.svg)
-12. [slide-13-vision.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-13-vision.svg)
-13. [slide-14-ask.svg](/Users/gowthamcherukuri/Desktop/vector_pulse/slides/slide-14-ask.svg)
+## 📊 Presentation Flow
+1. **Title**: The Autonomous RTO Shield.
+2. **The Problem**: RTO as a growth killer in Indian E-commerce.
+3. **The Solution**: Autonomous ML Fraud Engine.
+4. **Features**: Identity Graph, Behavioral DNA, Semantic Clustering.
+5. **Transparency**: Explainable AI (XAI) reports.
+6. **ROI**: Interactive Savings Calculator.
+7. **Pricing**: Flexible tiers from Starter to Managed.
+8. **Call to Action**: Start the Pilot.
 
-## Import Note
-This environment cannot generate `.pptx` files directly. Use the ordered slide list above to import the SVGs into PowerPoint, Keynote, Google Slides, or Canva.
+## 🎨 Assets
+- `assets/hero.png`: Real-time dashboard visualization.
+- `assets/problem.png`: Visualizing RTO financial leakage.
+- `assets/solution.png`: The Autonomous AI Protection Shield.
+
+---
+**Vector-Pulse: Secure Your Scale.**

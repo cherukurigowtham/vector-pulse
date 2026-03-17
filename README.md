@@ -48,7 +48,7 @@ python3 -m unittest discover -s tests -p 'test_*.py'
 
 # Run the demo client against a local API
 export VECTOR_PULSE_API_KEY=vp_your_key_here
-python3 demo_client.py
+python3 scripts/demo_client.py
 ```
 
 ## ⚙️ Runtime Tuning
@@ -101,5 +101,5 @@ The `/health` endpoint now reports both Redis and audit-backend status, includin
 # Flush Redis only when you confirm the action and provide the system secret
 export VECTOR_PULSE_RESET_CONFIRM=DELETE_ALL_DATA
 export VECTOR_PULSE_ADMIN_KEY=your_admin_secret_key # Must match ADMIN_SECRET_KEY
-python3 admin_reset.py
+python3 scripts/admin_reset.py
 ```
