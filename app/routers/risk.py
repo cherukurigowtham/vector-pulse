@@ -4,8 +4,10 @@ import hashlib
 import secrets
 import logging
 import asyncio
-from fastapi import APIRouter, Depends, HTTPException, Security, BackgroundTasks, Response
-from app.models import Order, OutcomeUpdate
+from fastapi import APIRouter, Depends, HTTPException, Security, BackgroundTasks, Response, Request, Body
+from app.models import Order, OutcomeUpdate, BehavioralIngestRequest
+from app.core.security import require_api_key, require_api_key_or_admin, require_signed_request
+from app.core.signal_tunnel import tunnel
 
 logger = logging.getLogger(__name__)
 from app.core.config import RISK_CONFIG, RISK_FAIL_CLOSED, RATE_LIMITS
@@ -22,6 +24,7 @@ from app.core.intelligence import get_cluster_risk_bonus, apply_outcome_feedback
 from app.services.graph_service import link_identity
 from app.services.quarantine_service import process_fraud_feedback
 from app.services.monitoring_service import track_decision_bias
+from app.services.simulation_service import simulation_service
 
 router = APIRouter(tags=["risk"])
 
@@ -69,15 +72,16 @@ async def _perform_post_analysis_ops(
         await r.sadd(f"user_uids:{merchant_email}", order.uid)
         await r.expire(f"user_uids:{merchant_email}", 86400 * 90)
         
+        savings_key = f"stats:savings:{merchant_key_hash}"
+        blocks_key = f"stats:blocks:{merchant_key_hash}"
+        awards_key = f"stats:awards:{merchant_key_hash}"
+
         if analysis["score"] > risk_config["decision_threshold"]:
             await r.incrby("total_savings_inr", risk_config["savings_per_block_inr"])
             await r.expire("total_savings_inr", 86400 * 365)
             
-            savings_key = f"stats:savings:{merchant_key_hash}"
-            blocks_key = f"stats:blocks:{merchant_key_hash}"
             await r.incrby(savings_key, risk_config["savings_per_block_inr"])
             await r.expire(savings_key, 86400 * 90)
-            awards_key = f"stats:awards:{merchant_key_hash}"
             await r.incr(awards_key)
             await r.expire(awards_key, 86400 * 90)
 
@@ -161,6 +165,10 @@ async def explain_decision(risk_id: str, key_data: dict = Depends(require_api_ke
         logging.error(f"Explain API Error: {e}")
         raise HTTPException(status_code=500, detail="Internal analysis service error")
 
+async def _set_latency_stat(email: str, lat: float):
+    if email:
+        await r.set(f"stats:latency:{email}", str(lat))
+
 @router.post("/v1/risk-check", summary="Evaluate an order for fraud risk")
 async def check_order(order: Order, bg: BackgroundTasks, key_data: dict = Depends(require_api_key)):
     start_time = time.perf_counter()
@@ -202,7 +210,13 @@ async def check_order(order: Order, bg: BackgroundTasks, key_data: dict = Depend
         error_type = "TIMEOUT" if isinstance(e, asyncio.TimeoutError) else "ENGINE_ERROR"
         logging.error(f"Analysis Failed ({error_type}) [Order: {order.uid}]: {str(e)}")
         risk_score = 100.0 if RISK_FAIL_CLOSED else 0.0
-        analysis = {"score": risk_score, "flags": [f"{error_type}_FALLBACK"], "metrics": {}, "trust_score": 50.0}
+        analysis = {
+            "score": risk_score, 
+            "flags": [f"{error_type}_FALLBACK"], 
+            "metrics": {}, 
+            "trust_score": 50.0,
+            "xai_impacts": {}
+        }
 
     # Semantic ML Cluster Bonus
     cluster_bonus = await get_cluster_risk_bonus(order)
@@ -218,12 +232,33 @@ async def check_order(order: Order, bg: BackgroundTasks, key_data: dict = Depend
     bg.add_task(_perform_post_analysis_ops, order, analysis, risk_id, action, risk_config, merchant_key_hash, merchant_email, usage_key)
 
     latency = (time.perf_counter() - start_time) * 1000
-    bg.add_task(r.set, f"stats:latency:{merchant_email}", str(latency))
+    bg.add_task(_set_latency_stat, merchant_email, latency)
     
     return {
-        "uid": order.uid, "risk_id": risk_id, "decision": action, "shadow_mode": order.shadow,
-        "risk_score": round(float(risk_score), 1), "risk_factors": analysis["flags"], "latency_ms": f"{latency:.2f}ms",
+        "uid": order.uid, 
+        "risk_id": risk_id, 
+        "decision": action, 
+        "shadow_mode": order.shadow,
+        "risk_score": round(float(risk_score), 1), 
+        "risk_factors": analysis["flags"], 
+        "impact_analysis": analysis.get("xai_impacts", {}),
+        "latency_ms": f"{latency:.2f}ms",
     }
+
+@router.post("/v1/simulation/run", summary="Run a fraud simulation on historical data")
+async def run_simulation(
+    candidate_config: dict = Body(...),
+    key_data: dict = Depends(require_api_key)
+):
+    """
+    Phase 19: Cognitive Optimizer.
+    Runs a 'What-If' simulation using a merchant's historical traffic.
+    """
+    merchant_email = key_data.get("email")
+    results = await simulation_service.run_simulation(merchant_email, candidate_config)
+    if "error" in results:
+        raise HTTPException(status_code=404, detail=results["error"])
+    return results
 
 async def _handle_outcome_feedback(risk_id: str, status: str, merchant_email: str):
     """
@@ -268,3 +303,43 @@ async def update_outcome(update: OutcomeUpdate, bg: BackgroundTasks, key_data: d
     except Exception as e:
         logging.error(f"Outcome update failed for {update.risk_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal persistence error. Please retry.")
+
+@router.post("/v1/behavioral/ingest", summary="Ingest encrypted behavioral clickstream")
+async def ingest_behavioral(
+    request: Request,
+    bg: BackgroundTasks, 
+    key_data: dict = Depends(require_signed_request)
+):
+    """
+    Secure Behavioral Ingest via Iron Shield Signal Tunnel.
+    Requires signed payload and decrypts in-flight.
+    """
+    try:
+        body_bytes = await request.body()
+        raw_body = json.loads(body_bytes)
+        encrypted_payload = raw_body.get("payload")
+        if not encrypted_payload:
+            raise HTTPException(status_code=400, detail="Missing encrypted payload")
+            
+        # Decrypt via Tunnel
+        try:
+            decrypted_data = tunnel.decrypt_signal(encrypted_payload)
+        except ValueError as ve:
+            logger.warning(f"Decryption failure for {key_data['email']}: {ve}")
+            raise HTTPException(status_code=403, detail=str(ve))
+        
+        # Validate against model
+        ingest = BehavioralIngestRequest(**decrypted_data)
+        
+        # Process signals (Simulated latency for GNN linkage)
+        session_key = f"bev:{ingest.session_id}"
+        if ingest.events:
+            await r.lpush(session_key, *[json.dumps(e.model_dump()) for e in ingest.events])
+            await r.expire(session_key, 3600)
+        
+        return {"status": "tunneled", "events_ingested": len(ingest.events)}
+    except ValueError as ve:
+        raise HTTPException(status_code=403, detail=str(ve))
+    except Exception as e:
+        logger.error(f"Ingest Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal tunnel error")

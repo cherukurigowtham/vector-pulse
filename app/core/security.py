@@ -8,6 +8,10 @@ from app.core.helpers import (
     _is_admin_email, _hash_key, _log_event
 )
 import logging
+import hmac
+import time
+
+logger = logging.getLogger(__name__)
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 admin_key_header = APIKeyHeader(name="X-Admin-Key", auto_error=False)
@@ -60,6 +64,30 @@ async def require_csrf(request: Request):
         logging.warning(f"CSRF validation failed for session {session_id[:8]}...")
         raise HTTPException(status_code=403, detail="CSRF token validation failed")
 
+async def get_current_user_role(request: Request) -> str:
+    """Dependency to get the current user's role from their session."""
+    session_id = request.cookies.get("vp_session")
+    if not session_id:
+        return "ANONYMOUS"
+    
+    email = await r.get(f"session:{session_id}")
+    if not email:
+        return "ANONYMOUS"
+        
+    role = await r.hget(f"user:{email}", "role")
+    return role or "ANALYST"
+
+def role_required(allowed_roles: list[str]):
+    """Decorator-like dependency to restrict access to specific roles."""
+    async def dependency(role: str = Depends(get_current_user_role)):
+        # Admin is the superuser, always allowed
+        if role == "ADMIN":
+            return
+        if role not in allowed_roles:
+            logger.warning(f"Access denied for role: {role}. Required: {allowed_roles}")
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+    return dependency
+
 async def require_admin(request: Request, x_admin_header: str = Security(admin_key_header), _csrf = Depends(require_csrf)):
     if x_admin_header and x_admin_header == ADMIN_KEY:
         return PRIMARY_ADMIN_EMAIL
@@ -68,6 +96,10 @@ async def require_admin(request: Request, x_admin_header: str = Security(admin_k
     if session_id:
         email = await r.get(f"session:{session_id}")
         if _is_admin_email(email):
+            return email
+        # Check Redis role
+        role = await r.hget(f"user:{email}", "role")
+        if role == "ADMIN":
             return email
             
     raise HTTPException(status_code=403, detail="Invalid admin credentials or session")
@@ -118,3 +150,49 @@ async def require_api_key_or_admin(
     if api_key:
         return await require_api_key(api_key)
     return await require_admin(request, x_admin_key)
+async def require_signed_request(
+    request: Request,
+    signature: str = Header(..., alias="X-Vantix-Signature"),
+    nonce: str = Header(..., alias="X-Vantix-Nonce"),
+    timestamp: str = Header(..., alias="X-Vantix-Timestamp"),
+    api_key_data: dict = Depends(require_api_key)
+):
+    """
+    Zero-Trust Iron Shield: Enforces HMAC signature verification and replay protection.
+    """
+    # 1. Check timestamp window (5 minutes)
+    try:
+        ts = float(timestamp)
+        now = time.time()
+        if abs(now - ts) > 300:
+            logger.warning(f"Timestamp window violation for {api_key_data['email']}")
+            raise HTTPException(status_code=403, detail="Request timestamp outside of allowed window")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid X-Vantix-Timestamp")
+
+    # 2. Check for Replay Attack (Nonce reuse)
+    nonce_key = f"nonce:{api_key_data['email']}:{nonce}"
+    if await r.get(nonce_key):
+        logger.warning(f"Replay attack detected: Nonce {nonce} already used for {api_key_data['email']}")
+        raise HTTPException(status_code=403, detail="Replay attack detected (Nonce reuse)")
+    
+    # 3. Verify Signature
+    body = await request.body()
+    message = nonce.encode() + timestamp.encode() + body
+    
+    signing_secret = api_key_data['data'].get('secret', 'static_fallback_secret_v1')
+    
+    expected_sig = hmac.new(
+        signing_secret.encode(),
+        message,
+        hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(signature, expected_sig):
+        logger.warning(f"Signature mismatch for {api_key_data['email']}")
+        raise HTTPException(status_code=403, detail="Invalid X-Vantix-Signature")
+
+    # 4. Mark Nonce as used
+    await r.setex(nonce_key, 600, "1") # Expire after 10 mins (double the window)
+    
+    return api_key_data

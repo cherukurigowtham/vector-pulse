@@ -1,4 +1,8 @@
 fastapi
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-instrumentation-fastapi
+prometheus-client
 uvicorn
 pydantic
 redis[asyncio]
