@@ -6,6 +6,9 @@
     <title>Merchant Portal | Vantix</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="assets/graph_visual.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://leaflet.github.io/Leaflet.heat/dist/leaflet-heat.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -148,6 +151,44 @@
         .save-bar.active { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
         .btn-small { padding: 10px 24px; border-radius: 12px; font-size: 13px; font-weight: 800; width: auto; }
 
+        /* Marketplace */
+        .marketplace-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; margin-top: 24px; }
+        .app-card { 
+            background: var(--surface); border: 1px solid var(--border); padding: 32px; border-radius: 24px;
+            display: flex; flex-direction: column; gap: 16px; transition: all 0.3s;
+        }
+        .app-card:hover { border-color: var(--accent); transform: translateY(-4px); }
+        .app-icon { font-size: 48px; margin-bottom: 8px; }
+        .app-name { font-size: 18px; font-weight: 800; }
+        .app-provider { font-size: 12px; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+        .app-desc { font-size: 14px; color: var(--text-muted); line-height: 1.5; flex-grow: 1; }
+        .app-footer { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding-top: 20px; border-top: 1px solid var(--border); }
+        .app-price { font-size: 14px; font-weight: 700; color: var(--text); }
+        .btn-install { 
+            background: rgba(255,255,255,0.05); color: #fff; padding: 8px 18px; border-radius: 10px;
+            font-size: 13px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); transition: all 0.2s;
+        }
+        .btn-install.installed { background: var(--accent); color: white; border-color: var(--accent); }
+        .app-badge { font-size: 10px; background: rgba(20, 184, 166, 0.1); color: var(--accent); padding: 2px 8px; border-radius: 6px; font-weight: 800; margin-left:8px;}
+        
+        /* Phase 18 Resilience UI */
+        .policy-selector {
+            margin-top: 16px;
+            padding: 12px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        .policy-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; margin-bottom: 8px; display: block; }
+        .policy-options { display: flex; gap: 4px; }
+        .policy-btn { 
+            flex: 1; font-size: 9px; padding: 6px 4px; border-radius: 6px; border: 1px solid var(--border); 
+            background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.2s; font-weight: 700;
+        }
+        .policy-btn:hover { border-color: var(--accent); color: var(--text); }
+        .policy-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .policy-info { font-size: 9px; color: var(--text-muted); margin-top: 6px; display: block; font-style: italic; }
+
         #toast {
             position: fixed; top: 40px; right: 40px; background: var(--surface-opaque);
             border: 1px solid var(--border-active); padding: 16px 28px; border-radius: 16px;
@@ -204,6 +245,11 @@
                 <div class="tab" onclick="switchTab('compliance')">Compliance Hub</div>
                 <div class="tab" onclick="switchTab('forensics')">AI Forensics</div>
                 <div class="tab" onclick="switchTab('alerts')">Alert Engine</div>
+                <div class="tab" onclick="switchTab('marketplace')">Marketplace</div>
+                <div class="tab" onclick="switchTab('sandbox')">Simulation Sandbox</div>
+                <div class="tab" onclick="switchTab('disputes')">Dispute Manager</div>
+                <div class="tab" onclick="switchTab('global')">Global Intelligence</div>
+                <div id="teamTab" class="tab hidden" onclick="switchTab('team')">Team Management</div>
                 <div class="tab" onclick="switchTab('settings')">Settings</div>
             </div>
 
@@ -634,6 +680,243 @@ const risk = await client.analyzeOrder({
                         <!-- Forensic signals here -->
                     </div>
                 </div>
+
+                <div class="card" id="identityMapCard" style="display:none;">
+                    <div class="card-header">
+                        <div class="card-title">🕸️ Identity Connection Map</div>
+                    </div>
+                    <p style="color:var(--text-muted); font-size:12px; margin-bottom:16px;">Visualizing hidden links between this transaction and other identities in the Vantix network.</p>
+                    <div id="identityGraphContent" style="display:flex; flex-direction:column; gap:12px;">
+                        <!-- Graph content here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Marketplace -->
+        <div id="tab-marketplace" class="tab-content hidden">
+            <div class="card">
+                <div class="card-header">
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <div class="card-title">Vantix App Marketplace</div>
+                        <p style="font-size:14px; color:var(--text-muted); font-weight:500;">Extend your risk engine with professional-grade signal providers and specialized security tools.</p>
+                    </div>
+                </div>
+                <div class="marketplace-grid" id="marketplaceApps">
+                    <!-- Apps loaded dynamically -->
+                    <div style="grid-column: 1/-1; padding: 40px; text-align: center; color: var(--text-muted);">
+                        Loading Ecosystem...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Simulation Sandbox -->
+        <div id="tab-sandbox" class="tab-content hidden">
+            <div class="main-grid" style="grid-template-columns: 1fr 1.5fr;">
+                <div style="display:flex; flex-direction:column; gap:24px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Policy Optimizer</div>
+                        </div>
+                        <p style="color:var(--text-muted); font-size:13px; margin-bottom:24px;">Adjust weights and thresholds to see how they would have impacted your last 500 transactions.</p>
+                        
+                        <div id="simulationConfig" style="display:flex; flex-direction:column; gap:20px;">
+                            <div class="config-row">
+                                <div class="config-info">
+                                    <h4>Protection Threshold</h4>
+                                    <p>Orders exceeding this score will be flagged as FORCE_PREPAID.</p>
+                                </div>
+                                <div class="slider-container">
+                                    <span class="range-val" id="sim_val_threshold">50</span>
+                                    <input type="range" min="0" max="100" step="1" value="50" id="sim_threshold" oninput="updateVal('sim_val_threshold', this.value)">
+                                </div>
+                            </div>
+
+                            <div class="config-row">
+                                <div class="config-info">
+                                    <h4>Global Risk Weight</h4>
+                                    <p>Impact of consortium-wide reputation signals.</p>
+                                </div>
+                                <div class="slider-container">
+                                    <span class="range-val" id="sim_val_global">20</span>
+                                    <input type="range" min="0" max="50" step="1" value="20" id="sim_weight_global" oninput="updateVal('sim_val_global', this.value)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="btn primary" onclick="runHistoricalSimulation()" style="margin-top:32px;">Run Historical Replay</button>
+                        
+                        <div id="simulationLoading" class="hidden" style="text-align:center; padding:20px; margin-top: 20px;">
+                            <div style="color: var(--accent); font-weight: 700; animation: pulse 1.5s infinite;">Analyzing Neural Patterns...</div>
+                        </div>
+                    </div>
+
+                    <div class="card" id="autoPilotCard">
+                        <div class="card-header">
+                            <div class="card-title">🤖 Intelligent Auto-Pilot</div>
+                            <div class="app-badge" style="background:var(--accent); color:#fff;">v5.0 Alpha</div>
+                        </div>
+                        <p style="color:var(--text-muted); font-size:13px; margin-bottom:24px;">AI-driven policy generation. Vantix analyzes your outcome drift and suggests the mathematically optimal configuration.</p>
+                        
+                        <div id="autopilotStatus" style="text-align:center; padding:20px; background:rgba(255,255,255,0.02); border-radius:12px; border:1px dashed var(--border);">
+                            <div style="font-size:14px; color:var(--text-muted);">Scanning for Outcome Drift...</div>
+                        </div>
+
+                        <div id="autopilotSuggestion" class="hidden" style="margin-top:20px; padding:20px; background:rgba(20, 184, 166, 0.05); border-radius:12px; border:1px solid var(--accent-glow);">
+                            <div id="suggestionTitle" style="font-weight:700; color:var(--accent); margin-bottom:8px;">Optimization Available</div>
+                            <p id="suggestionReason" style="font-size:12px; color:var(--text-muted); margin-bottom:16px;"></p>
+                            <div style="display:flex; gap:12px; margin-bottom:20px;">
+                                <div class="stat-mini">
+                                    <label>Blocked (est)</label>
+                                    <span id="sug_new_blocks" style="color:var(--danger);">+0</span>
+                                </div>
+                                <div class="stat-mini">
+                                    <label>Recovered (est)</label>
+                                    <span id="sug_new_approvals" style="color:var(--success);">+0</span>
+                                </div>
+                            </div>
+                            <button class="btn primary" id="applyAutoBtn" onclick="applyAutoPilotOptimization()">Apply AI Optimization</button>
+                        </div>
+
+                        <button class="btn accent" onclick="fetchAutoPilotSuggestion()" style="margin-top:20px; width:100%; background:transparent; border:1px solid var(--accent); color:var(--accent);">Manually Trigger AI Scan</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Simulated Impact Analysis</div>
+                    </div>
+                    
+                    <div id="simulationResults" class="hidden">
+                        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:32px;">
+                            <div class="stat-card accent">
+                                <div class="label">Simulated Block Rate</div>
+                                <div class="value" id="sim_stat_block_rate">0.0%</div>
+                                <div id="sim_stat_block_delta" class="trend"></div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="label">Avg Score Shift</div>
+                                <div class="value" id="sim_stat_score_shift">0.0</div>
+                                <div class="trend" style="color:var(--text-muted);">Neural variance</div>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; flex-direction:column; gap:16px;">
+                            <div class="activity-item" style="border-color:var(--accent); background: rgba(20, 184, 166, 0.02);">
+                                <div class="activity-icon" style="background:rgba(20, 184, 166, 0.1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+                                <div>
+                                    <div style="font-weight:700;">Neural Insights</div>
+                                    <div id="sim_insight_text" style="color:var(--text-muted); font-size: 12px; margin-top: 4px;">...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-container" style="margin-top:32px;">
+                            <canvas id="simulationChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div id="simulationEmpty" style="text-align:center; padding:80px; color:var(--text-muted);">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="opacity:0.2; margin-bottom:20px;"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                        <p style="font-weight: 500;">Configure your candidate policy and execute a replay to see projected performance.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Dispute Manager -->
+        <div id="tab-disputes" class="tab-content hidden">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Chargeback Shield & Dispute Center</div>
+                    <div class="app-badge" style="background:var(--accent); color:#fff;">🛡️ Active Coverage</div>
+                </div>
+                <p style="color:var(--text-muted); font-size:13px; margin-bottom:24px;">Manage your chargebacks and download automated forensic evidence bundles to win disputes.</p>
+                
+                <div class="table-container">
+                    <table id="disputesTable">
+                        <thead>
+                            <tr>
+                                <th>Risk ID</th>
+                                <th>Order ID</th>
+                                <th>Status</th>
+                                <th>Vantix Signal Strength</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="disputesBody">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="disputesEmpty" class="hidden" style="text-align:center; padding:60px;">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.3; margin-bottom:16px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <p style="color:var(--text-muted);">No active disputes found. Your revenue is shielded.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Global Intelligence -->
+        <div id="tab-global" class="tab-content hidden">
+            <div class="card" style="padding:0; overflow:hidden;">
+                <div class="card-header" style="padding:24px;">
+                    <div class="card-title">Live Global Fraud Pulse</div>
+                    <div class="app-badge" style="background:var(--success); color:#fff;">📡 Live Feed</div>
+                </div>
+                <div id="telemetryMap" style="height:500px; width:100%; filter: grayscale(1) invert(0.9) contrast(1.2);"></div>
+                <div style="padding:16px; background:rgba(255,255,255,0.02); display:flex; gap:16px; border-top:1px solid var(--border);">
+                    <div style="flex:1;">
+                        <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">Recent Signals</div>
+                        <div id="attackTicker" style="font-family:var(--font-mono); font-size:11px; height:120px; overflow-y:auto; color:var(--accent);">
+                            <!-- Ticker content -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Team Management -->
+        <div id="tab-team" class="tab-content hidden">
+            <div class="card" style="max-width:900px; margin:0 auto;">
+                <div class="card-header">
+                    <div class="card-title">Enterprise Governance</div>
+                    <div class="app-badge" style="background:var(--accent); color:#fff;">Team: <span id="teamName">Loading...</span></div>
+                </div>
+                <div style="padding:20px;">
+                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:24px;">Manage your organization's members and their specific neural access levels.</p>
+                    
+                    <div class="table-container">
+                        <table style="width:100%; border-collapse:collapse;">
+                            <thead>
+                                <tr style="border-bottom:1px solid var(--border); text-align:left; color:var(--text-muted); font-size:12px;">
+                                    <th style="padding:12px;">MEMBER</th>
+                                    <th style="padding:12px;">ROLE</th>
+                                    <th style="padding:12px;">STATUS</th>
+                                    <th style="padding:12px;">ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="teamMembersList">
+                                <!-- Members will be populated here -->
+                                <tr><td colspan="4" style="text-align:center; padding:40px; color:var(--text-muted);">Syncing with Enterprise Registry...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div style="margin-top:32px; padding-top:24px; border-top:1px solid var(--border);">
+                        <h4>Add Member</h4>
+                        <div style="display:flex; gap:12px; margin-top:12px;">
+                            <input type="email" id="newMemberEmail" placeholder="colleague@company.com" class="btn" style="flex:1; background:rgba(255,255,255,0.05); text-align:left; padding:0 16px;">
+                            <select id="newMemberRole" class="btn" style="background:rgba(255,255,255,0.05); color:var(--text);">
+                                <option value="ANALYST">Analyst</option>
+                                <option value="VIEWER">Viewer</option>
+                                <option value="ADMIN">Admin</option>
+                            </select>
+                            <button class="btn primary" onclick="addTeamMember()">Invite Member</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -710,7 +993,16 @@ const risk = await client.analyzeOrder({
             document.querySelectorAll('.tab-content').forEach(c => {
                 c.classList.add('hidden');
             });
-            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const target = document.getElementById(`tab-${tabId}`);
+            if (target) target.classList.remove('hidden');
+
+            if (tabId === 'marketplace') {
+                fetchMarketplaceApps();
+            } else if (tabId === 'disputes') {
+                fetchDisputes();
+            } else if (tabId === 'global') {
+                initGlobalMap();
+            }
         }
 
         function generateSecret() {
@@ -796,8 +1088,23 @@ const risk = await client.analyzeOrder({
         function loadDashboard(data) {
             document.getElementById('authOverlay').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
-            document.getElementById('merchantEmail').textContent = data.email;
+            document.getElementById('merchantEmail').innerHTML = `${data.email} <span style="font-size:10px; opacity:0.6; margin-left:8px; padding:2px 6px; border:1px solid var(--border); border-radius:4px;">${data.role || 'ANALYST'}</span>`;
             document.getElementById('displayApiKey').textContent = currentApiKey;
+            
+            // Phase 24: Role-Based UI Toggling
+            const role = data.role || 'ANALYST';
+            const isAdmin = role === 'ADMIN';
+            
+            if (isAdmin) {
+                document.getElementById('teamTab').classList.remove('hidden');
+                document.getElementById('saveBar').style.display = 'flex'; // Enable save bar for admins
+            } else {
+                document.getElementById('teamTab').classList.add('hidden');
+                document.getElementById('saveBar').style.display = 'none'; // Read-only for others
+                // Disable configuration inputs
+                document.querySelectorAll('input[type="range"]').forEach(i => i.disabled = true);
+                document.querySelectorAll('.autopilot-actions button').forEach(b => b.disabled = true);
+            }
             
             const c = data.risk_config;
             setRangeValue('weight_email_name', 'val_email_name', c.email_name_mismatch_weight || 15);
@@ -807,6 +1114,7 @@ const risk = await client.analyzeOrder({
             setRangeValue('threshold_range', 'val_threshold', c.decision_threshold || 50);
             
             initChart();
+            if (isAdmin) fetchTeamMembers();
         }
 
         function setRangeValue(inputId, labelId, val) {
@@ -1169,6 +1477,10 @@ const risk = await client.analyzeOrder({
                     document.getElementById('forensicNarrative').textContent = data.adjudication_narrative;
                     document.getElementById('forensicTitle').textContent = `AI Adjudication: ${riskId}`;
                     
+                    // Phase 23: Identity Map Integration
+                    const emailSignal = data.forensic_signals.email || "";
+                    if (emailSignal) renderIdentityMap(emailSignal);
+                    
                     const signals = document.getElementById('forensicSignals');
                     signals.innerHTML = '';
                     Object.entries(data.forensic_signals).forEach(([key, val]) => {
@@ -1198,6 +1510,450 @@ const risk = await client.analyzeOrder({
         function initNeuralMap() {
             if (window.NeuralMap) {
                 new NeuralMap('neuralMapCanvas');
+            }
+        }
+
+        async function renderIdentityMap(email) {
+            const mapCard = document.getElementById('identityMapCard');
+            const graphContent = document.getElementById('identityGraphContent');
+            mapCard.style.display = 'block';
+            graphContent.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">Reconstructing shadow links...</div>';
+
+            try {
+                const res = await fetch(`/v1/auth/identity/graph/email/${encodeURIComponent(email)}`);
+                const data = await res.json();
+                
+                if (data.graph) {
+                    let html = '';
+                    if (data.graph.ips && data.graph.ips.length > 0) {
+                        html += `<div><strong style="color:var(--accent); font-size:11px;">Linked IPs</strong><div style="font-family:var(--font-mono); font-size:11px; margin-top:4px;">${data.graph.ips.join(', ')}</div></div>`;
+                    }
+                    if (data.graph.devices && data.graph.devices.length > 0) {
+                        html += `<div style="margin-top:12px;"><strong style="color:var(--accent); font-size:11px;">Linked Devices</strong><div style="font-family:var(--font-mono); font-size:11px; margin-top:4px;">${data.graph.devices.join(', ')}</div></div>`;
+                    }
+                    graphContent.innerHTML = html || '<div style="color:var(--text-muted); font-size:12px;">No secondary shadow links detected for this identity.</div>';
+                }
+            } catch (e) {
+                graphContent.innerHTML = '<div style="color:var(--danger); font-size:12px;">Failed to load identity graph.</div>';
+            }
+        }
+
+        async function fetchMarketplaceApps() {
+            const container = document.getElementById('marketplaceApps');
+            try {
+                const res = await fetch('/v1/marketplace/apps', {
+                    headers: { 'X-API-Key': currentApiKey }
+                });
+                const data = await res.json();
+                
+                if (data.apps) {
+                    container.innerHTML = data.apps.map(app => {
+                        const isInstalled = app.is_installed;
+                        let policyHtml = '';
+                        
+                        if (isInstalled) {
+                            const p = app.failure_policy || 'FAIL_OPEN';
+                            policyHtml = `
+                                <div class="policy-selector">
+                                    <span class="policy-label">🛡️ Resilience Policy</span>
+                                    <div class="policy-options">
+                                        <button class="policy-btn ${p === 'FAIL_OPEN' ? 'active' : ''}" onclick="setAppPolicy('${app.id}', 'FAIL_OPEN')">Open</button>
+                                        <button class="policy-btn ${p === 'FAIL_CLOSED' ? 'active' : ''}" onclick="setAppPolicy('${app.id}', 'FAIL_CLOSED')">Closed</button>
+                                        <button class="policy-btn ${p === 'SUBSTITUTE_INTERNAL' ? 'active' : ''}" onclick="setAppPolicy('${app.id}', 'SUBSTITUTE_INTERNAL')">Sub</button>
+                                    </div>
+                                    <span class="policy-info">
+                                        ${p === 'FAIL_OPEN' ? 'Ignore failures' : p === 'FAIL_CLOSED' ? 'Block on failure' : 'Boost internal ML'}
+                                    </span>
+                                </div>
+                            `;
+                        }
+
+                        return `
+                            <div class="app-card">
+                                <div class="app-icon">${app.icon}</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div class="app-name">${app.name}</div>
+                                    <div class="app-badge">${app.category}</div>
+                                </div>
+                                <div class="app-provider">by ${app.provider}</div>
+                                <p class="app-desc">${app.description}</p>
+                                ${policyHtml}
+                                <div class="app-footer">
+                                    <div class="app-price">${app.price}</div>
+                                    <button class="btn-install ${isInstalled ? 'installed' : ''}" 
+                                            onclick="toggleApp('${app.id}', ${isInstalled})">
+                                        ${isInstalled ? 'Uninstall' : 'Install App'}
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (e) {
+                container.innerHTML = `<div style="grid-column:1/-1; color:var(--danger); text-align:center;">Failed to connect to marketplace.</div>`;
+            }
+        }
+
+        async function setAppPolicy(appId, policy) {
+            try {
+                const res = await fetch(`/v1/marketplace/policy/${appId}?policy=${policy}`, {
+                    method: 'POST',
+                    headers: { 'X-API-Key': currentApiKey, 'X-CSRF-Token': getCookie('vp_csrf') }
+                });
+                if (res.ok) {
+                    showToast(`Policy for ${appId} set to ${policy}`);
+                    fetchMarketplaceApps();
+                } else {
+                    showToast('Failed to update policy.');
+                }
+            } catch (e) {
+                showToast('Network error.');
+            }
+        }
+
+        async function toggleApp(appId, isInstalled) {
+            const method = isInstalled ? 'DELETE' : 'POST';
+            const action = isInstalled ? 'uninstall' : 'install';
+            
+            try {
+                const res = await fetch(`/v1/marketplace/${action}/${appId}`, {
+                    method: method,
+                    headers: { 'X-API-Key': currentApiKey }
+                });
+                if (res.ok) {
+                    showToast(`${appId} ${isInstalled ? 'removed' : 'installed'} successfully.`);
+                    fetchMarketplaceApps();
+                } else {
+                    showToast('Operation failed.');
+                }
+            } catch (e) {
+                showToast('Marketplace connection error.');
+            }
+        }
+
+        let simulationChart;
+
+        async function runHistoricalSimulation() {
+            const threshold = parseInt(document.getElementById('sim_threshold').value);
+            const globalWeight = parseInt(document.getElementById('sim_weight_global').value);
+
+            // Candidate config package
+            const candidateConfig = {
+                decision_threshold: threshold,
+                global_network_weight: globalWeight,
+                velocity_weight: 20,
+                sybil_weight: 15,
+                anomaly_weight: 15,
+                identity_weight: 30,
+                vpn_weight: 10,
+                gibberish_weight: 10,
+                device_velocity_weight: 20,
+                suspicious_name_weight: 10,
+                geo_velocity_weight: 25,
+                time_anomaly_weight: 10,
+                bot_speed_weight: 20,
+                suspicious_phone_weight: 15,
+                disposable_email_weight: 10,
+                email_name_mismatch_weight: 15,
+                poor_address_weight: 10,
+                high_risk_pin_weight: 10,
+                trust_floor: 30,
+                trust_penalty_multiplier: 1.0,
+                history_len: 20,
+                z_score_threshold: 3.0,
+                velocity_window_secs: 3600,
+                velocity_max_orders: 5,
+                sybil_address_limit: 3
+            };
+
+            document.getElementById('simulationLoading').classList.remove('hidden');
+            document.getElementById('simulationEmpty').classList.add('hidden');
+            document.getElementById('simulationResults').classList.add('hidden');
+
+            try {
+                const res = await fetch('/v1/simulation/run', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': currentApiKey
+                    },
+                    body: JSON.stringify(candidateConfig)
+                });
+
+                const data = await res.json();
+                document.getElementById('simulationLoading').classList.add('hidden');
+
+                if (data.error) {
+                    showToast(data.error);
+                    document.getElementById('simulationEmpty').classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById('simulationResults').classList.remove('hidden');
+                
+                // Update Stats
+                const blockRate = ((data.simulated_blocks / data.total_scanned) * 100).toFixed(1);
+                document.getElementById('sim_stat_block_rate').textContent = blockRate + '%';
+                
+                const delta = data.simulated_blocks - data.original_blocks;
+                const deltaEl = document.getElementById('sim_stat_block_delta');
+                deltaEl.textContent = (delta >= 0 ? '+' : '') + delta + ' vs original';
+                deltaEl.style.color = delta === 0 ? 'var(--text-muted)' : (delta > 0 ? 'var(--warning)' : 'var(--success)');
+                
+                document.getElementById('sim_stat_score_shift').textContent = (data.avg_score_simulated - data.avg_score_original).toFixed(1);
+
+                // Insights
+                let insight = "";
+                if (data.new_blocks > 0) insight += `Detected ${data.new_blocks} additional high-risk patterns that were previously allowed. `;
+                if (data.new_approvals > 0) insight += `Safely recovered ${data.new_approvals} orders that were over-flagged. `;
+                if (delta === 0) insight += "Policy stability confirmed. No significant shift in enforcement coverage.";
+                document.getElementById('sim_insight_text').textContent = insight || "Analysis complete. Policy demonstrates high alignment with historical baseline.";
+
+                // Chart
+                renderSimulationChart(data);
+
+            } catch (err) {
+                console.error(err);
+                showToast("Simulation failed to execute.");
+                document.getElementById('simulationLoading').classList.add('hidden');
+                document.getElementById('simulationEmpty').classList.remove('hidden');
+            }
+        }
+
+        function renderSimulationChart(data) {
+            const ctx = document.getElementById('simulationChart').getContext('2d');
+            if (simulationChart) simulationChart.destroy();
+
+            simulationChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Original', 'Simulated'],
+                    datasets: [{
+                        label: 'Internal Score Variance',
+                        data: [data.avg_score_original, data.avg_score_simulated],
+                        backgroundColor: ['rgba(255,255,255,0.05)', 'rgba(20, 184, 166, 0.4)'],
+                        borderColor: ['rgba(255,255,255,0.1)', '#14b8a6'],
+                        borderWidth: 1,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        async function fetchDisputes() {
+            const body = document.getElementById('disputesBody');
+            const empty = document.getElementById('disputesEmpty');
+            try {
+                const res = await fetch('/v1/auth/disputes');
+                const data = await res.json();
+                
+                const entries = Object.entries(data.disputes || {});
+                if (entries.length === 0) {
+                    body.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    return;
+                }
+                
+                empty.classList.add('hidden');
+                body.innerHTML = entries.map(([riskId, status]) => {
+                    return `
+                        <tr>
+                            <td style="font-family:monospace; font-size:12px;">${riskId}</td>
+                            <td>ORD-${riskId.split('_')[1] || 'UNK'}</td>
+                            <td><span class="app-badge" style="background:rgba(239, 68, 68, 0.1); color:var(--danger);">${status}</span></td>
+                            <td>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <div style="flex:1; height:4px; background:rgba(255,255,255,0.05); border-radius:2px; overflow:hidden;">
+                                        <div style="width:85%; height:100%; background:var(--accent);"></div>
+                                    </div>
+                                    <span style="font-size:11px; font-weight:700; color:var(--accent);">High Confidence</span>
+                                </div>
+                            </td>
+                            <td>
+                                <button class="btn primary" style="padding:6px 12px; font-size:11px;" onclick="downloadDisputeEvidence('${riskId}')">Download Bundle</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {
+                showToast('Couln\'t reach Neural Dispute Center.');
+            }
+        }
+
+        let currentSuggestion = null;
+
+        async function fetchAutoPilotSuggestion() {
+            const status = document.getElementById('autopilotStatus');
+            const sugBox = document.getElementById('autopilotSuggestion');
+            status.innerHTML = '<div style="animation: pulse 1.5s infinite; color:var(--accent);">Neural Engine Analyzing Outcomes...</div>';
+            sugBox.classList.add('hidden');
+
+            try {
+                const res = await fetch('/v1/auth/autopilot/suggestion');
+                const data = await res.json();
+                
+                if (data.status === 'IMPROVEMENT_AVAILABLE') {
+                    currentSuggestion = data.suggestion;
+                    document.getElementById('suggestionReason').textContent = data.suggestion.reason;
+                    document.getElementById('sug_new_blocks').textContent = `+${data.suggestion.expected_impact.new_blocks}`;
+                    document.getElementById('sug_new_approvals').textContent = `+${data.suggestion.expected_impact.new_approvals}`;
+                    
+                    status.classList.add('hidden');
+                    sugBox.classList.remove('hidden');
+                } else {
+                    status.innerHTML = `<div style="color:var(--success);">✨ ${data.message}</div>`;
+                }
+            } catch (e) {
+                status.innerHTML = '<div style="color:var(--danger);">Auto-Pilot Scan Failed.</div>';
+            }
+        }
+
+        async function applyAutoPilotOptimization() {
+            if (!currentSuggestion) return;
+            const btn = document.getElementById('applyAutoBtn');
+            btn.textContent = 'Applying...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/v1/auth/autopilot/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ candidate_config: currentSuggestion.candidate_config })
+                });
+                if (res.ok) {
+                    showToast('AI Optimization Deployed Successfully.');
+                    document.getElementById('autopilotSuggestion').classList.add('hidden');
+                    document.getElementById('autopilotStatus').classList.remove('hidden');
+                    document.getElementById('autopilotStatus').innerHTML = '<div style="color:var(--success);">System Optimized. Monitoring for next drift cycle...</div>';
+                }
+            } catch (e) {
+                showToast('Deployment sync failed.');
+            } finally {
+                btn.textContent = 'Apply AI Optimization';
+                btn.disabled = false;
+            }
+        }
+
+        async function downloadDisputeEvidence(riskId) {
+            try {
+                const res = await fetch(`/v1/auth/dispute/${riskId}/evidence`);
+                const data = await res.json();
+                
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Vantix_Evidence_${riskId}.json`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showToast('Forensic bundle downloaded successfully.');
+            } catch (e) {
+                showToast('Failed to generate evidence bundle.');
+            }
+        }
+
+        let telemetryMap = null;
+        let heatmapLayer = null;
+        let telemetryInterval = null;
+
+        function initGlobalMap() {
+            if (telemetryMap) return;
+            
+            telemetryMap = L.map('telemetryMap', {
+                center: [20, 0],
+                zoom: 2,
+                zoomControl: false,
+                attributionControl: false
+            });
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(telemetryMap);
+            
+            heatmapLayer = L.heatLayer([], {
+                radius: 25,
+                blur: 15,
+                maxZoom: 14,
+                gradient: {0.4: 'rgba(20, 184, 166, 0.4)', 0.65: 'rgba(59, 130, 246, 0.6)', 1: '#f43f5e'}
+            }).addTo(telemetryMap);
+
+            fetchTelemetry();
+            if (telemetryInterval) clearInterval(telemetryInterval);
+            telemetryInterval = setInterval(fetchTelemetry, 10000);
+        }
+
+        async function fetchTelemetry() {
+            try {
+                const res = await fetch('/v1/auth/telemetry/live');
+                const data = await res.json();
+                
+                const points = (data.events || []).map(e => [e.lat, e.lon, e.score * 10]);
+                heatmapLayer.setLatLngs(points);
+                
+                // Update Ticker
+                const ticker = document.getElementById('attackTicker');
+                const newEvents = data.events.slice(0, 10).map(e => {
+                    const time = new Date(e.ts * 1000).toLocaleTimeString();
+                    return `<div>[${time}] PHASIC_FLAG at ${e.lat}, ${e.lon} | RISK_SCORE: ${e.score}</div>`;
+                }).join('');
+                ticker.innerHTML = newEvents || '<div>Waiting for network signals...</div>';
+            } catch (e) {
+                console.error("Telemetry fetch failed", e);
+            }
+        }
+
+        async function fetchTeamMembers() {
+            try {
+                const res = await fetch('/v1/auth/team/members');
+                const data = await res.json();
+                if (res.ok) {
+                    document.getElementById('teamName').textContent = data.team_name;
+                    const list = document.getElementById('teamMembersList');
+                    list.innerHTML = data.members.map(m => `
+                        <tr style="border-bottom:1px solid var(--border);">
+                            <td style="padding:12px; font-weight:600;">${m.email}</td>
+                            <td style="padding:12px;"><span class="app-badge" style="background:rgba(255,255,255,0.05); color:var(--text); border:1px solid var(--border); font-size:10px;">${m.role}</span></td>
+                            <td style="padding:12px;"><span style="color:var(--success); font-size:11px;">● ${m.status}</span></td>
+                            <td style="padding:12px;"><button class="btn btn-small" style="opacity:0.5;" disabled>Manage</button></td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error("Team sync failed", e);
+            }
+        }
+
+        async function addTeamMember() {
+            const email = document.getElementById('newMemberEmail').value.trim();
+            const role = document.getElementById('newMemberRole').value;
+            if (!email) return showToast("Enter a valid email.");
+
+            try {
+                const res = await fetch('/v1/auth/team/members', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': getCookie('vp_csrf')
+                    },
+                    body: JSON.stringify({ email, role })
+                });
+                if (res.ok) {
+                    showToast(`Neural invitation sent to ${email}.`);
+                    document.getElementById('newMemberEmail').value = '';
+                    fetchTeamMembers();
+                } else {
+                    showToast("Failed to link new identity.");
+                }
+            } catch (e) {
+                showToast("Enterprise registry connection failure.");
             }
         }
 

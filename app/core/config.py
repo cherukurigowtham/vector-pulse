@@ -1,13 +1,17 @@
 import os
+from app.config.secrets import SecretsClient
 from typing import Any
+
 
 def _env_int(name: str, default: int) -> int:
     raw = os.getenv(name)
     return int(raw) if raw is not None else default
 
+
 def _env_float(name: str, default: float) -> float:
     raw = os.getenv(name)
     return float(raw) if raw is not None else default
+
 
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.getenv(name)
@@ -15,9 +19,13 @@ def _env_bool(name: str, default: bool) -> bool:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
+
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
 AUDIT_DB = "audit_log.db"
-DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+# Retrieve database URL from secret store if available
+DATABASE_URL = (
+    SecretsClient().get("DATABASE_URL", os.getenv("DATABASE_URL", "")).strip()
+)
 PILOT_REQUEST_WEBHOOK_URL = os.getenv("PILOT_REQUEST_WEBHOOK_URL", "").strip()
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
@@ -26,8 +34,8 @@ REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 REDIS_SSL = os.getenv("REDIS_SSL", "false").lower() == "true"
 
 CORS_ALLOW_ORIGINS = [
-    origin.strip() 
-    for origin in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") 
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOW_ORIGINS", "").split(",")
     if origin.strip()
 ] or [
     "http://localhost:8000",
@@ -111,5 +119,9 @@ RISK_CONFIG_BOUNDS = {
 
 ADMIN_KEY = os.getenv("ADMIN_SECRET_KEY", "local-dev-admin-key")
 SESSION_COOKIE_SECURE = ENVIRONMENT == "production"
-RISK_FAIL_CLOSED = _env_bool("RISK_FAIL_CLOSED", False)  # Default to fail-open (safer for business)
-GLOBAL_PULSE_SALT = os.getenv("GLOBAL_PULSE_SALT", "vector-pulse-collective-defense-2024")
+RISK_FAIL_CLOSED = _env_bool(
+    "RISK_FAIL_CLOSED", False
+)  # Default to fail-open (safer for business)
+GLOBAL_PULSE_SALT = os.getenv(
+    "GLOBAL_PULSE_SALT", "vector-pulse-collective-defense-2024"
+)

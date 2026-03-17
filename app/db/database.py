@@ -44,23 +44,30 @@ class PostgresStore:
                     timestamp DOUBLE PRECISION
                 )
             """)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS teams (
+                    team_id TEXT PRIMARY KEY,
+                    name TEXT,
+                    owner_email TEXT,
+                    created_at DOUBLE PRECISION
+                )
+            """)
 
     async def close(self):
         if self.pool:
             await self.pool.close()
 
     async def insert_risk_audit(self, p: dict):
+        if not self.pool: return
         async with self.pool.acquire() as conn:
             await conn.execute("""
                 INSERT INTO risk_audit (risk_id, uid, email, risk_score, decision, shadow_mode, reasons, metrics, timestamp)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             """, p["risk_id"], p["uid"], p["email"], p["risk_score"], p["decision"], p["shadow_mode"], p["reasons"], p["metrics"], p["timestamp"])
 
-    async def update_outcome(self, risk_id: str, status: str, reason: str | None = None):
-        async with self.pool.acquire() as conn:
-            await conn.execute("UPDATE risk_audit SET outcome = $1 WHERE risk_id = $2", status, risk_id)
 
     async def insert_risk_profile_audit(self, p: dict):
+        if not self.pool: return
         async with self.pool.acquire() as conn:
             await conn.execute("""
                 INSERT INTO risk_profile_audit (audit_id, email, actor, action, previous_config, new_config, timestamp)
@@ -72,12 +79,10 @@ class PostgresStore:
             await conn.execute("DELETE FROM risk_audit WHERE email = $1", email)
             await conn.execute("DELETE FROM risk_profile_audit WHERE email = $1", email)
 
-    async def fetch_risk_audit(self, risk_id: str):
-        async with self.pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT * FROM risk_audit WHERE risk_id = $1", risk_id)
-            return dict(row) if row else None
+    async def get_audit_by_id(self, risk_id: str):
+        return await self.fetch_risk_audit(risk_id)
 
-    async def update_outcome(self, risk_id: str, status: str):
+    async def update_audit_outcome(self, risk_id: str, status: str):
         async with self.pool.acquire() as conn:
             await conn.execute("UPDATE risk_audit SET outcome = $1 WHERE risk_id = $2", status, risk_id)
 
@@ -93,7 +98,7 @@ class PostgresStore:
 
     async def fetch_all_merchant_audits(self, email: str, limit: int = 1000):
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch("SELECT risk_id, uid, risk_score, decision, reasons, timestamp, outcome, shadow_mode FROM risk_audit WHERE email = $1 ORDER BY timestamp DESC LIMIT $2", email, limit)
+            rows = await conn.fetch("SELECT risk_id, uid, risk_score, decision, reasons, metrics, timestamp, outcome, shadow_mode FROM risk_audit WHERE email = $1 ORDER BY timestamp DESC LIMIT $2", email, limit)
             return [dict(r) for r in rows]
 
     async def fetch_compliance_logs(self, email: str, start_ts: float, end_ts: float):
@@ -149,6 +154,14 @@ class SQLiteStore:
                 timestamp REAL
             )
         """)
+        await self.db.execute("""
+            CREATE TABLE IF NOT EXISTS teams (
+                team_id TEXT PRIMARY KEY,
+                name TEXT,
+                owner_email TEXT,
+                created_at REAL
+            )
+        """)
         await self.db.commit()
 
     async def close(self):
@@ -156,6 +169,7 @@ class SQLiteStore:
             await self.db.close()
 
     async def insert_risk_audit(self, p: dict):
+        if not self.db: return
         await self.db.execute("""
             INSERT INTO risk_audit (risk_id, uid, email, risk_score, decision, shadow_mode, reasons, metrics, timestamp)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -163,6 +177,7 @@ class SQLiteStore:
         await self.db.commit()
 
     async def insert_risk_profile_audit(self, p: dict):
+        if not self.db: return
         await self.db.execute("""
             INSERT INTO risk_profile_audit (audit_id, email, actor, action, previous_config, new_config, timestamp)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -180,10 +195,14 @@ class SQLiteStore:
             row = await cursor.fetchone()
             return dict(row) if row else None
 
-    async def update_outcome(self, risk_id: str, status: str, reason: str | None = None):
+    async def get_audit_by_id(self, risk_id: str):
+        return await self.fetch_risk_audit(risk_id)
+
+    async def update_audit_outcome(self, risk_id: str, status: str):
         if not self.db: return
         await self.db.execute("UPDATE risk_audit SET outcome = ? WHERE risk_id = ?", (status, risk_id))
         await self.db.commit()
+
 
     async def fetch_risk_profile_audits(self, email: str, limit: int = 10):
         async with self.db.execute("SELECT * FROM risk_profile_audit WHERE email = ? ORDER BY timestamp DESC LIMIT ?", (email, limit)) as cursor:
@@ -196,7 +215,7 @@ class SQLiteStore:
             return [dict(r) for r in rows]
 
     async def fetch_all_merchant_audits(self, email: str, limit: int = 1000):
-        async with self.db.execute("SELECT risk_id, uid, risk_score, decision, reasons, timestamp, outcome, shadow_mode FROM risk_audit WHERE email = ? ORDER BY timestamp DESC LIMIT ?", (email, limit)) as cursor:
+        async with self.db.execute("SELECT risk_id, uid, risk_score, decision, reasons, metrics, timestamp, outcome, shadow_mode FROM risk_audit WHERE email = ? ORDER BY timestamp DESC LIMIT ?", (email, limit)) as cursor:
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
 
