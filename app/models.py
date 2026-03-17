@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, EmailStr, field_validator
 import unicodedata
-from typing import Any, Literal, List
+from typing import Any, Literal, List, Dict
 
 class Order(BaseModel):
     uid: str = Field(..., min_length=1, max_length=64)
@@ -121,3 +121,17 @@ class AutomationRule(BaseModel):
 
 class AutomationRulesUpdate(BaseModel):
     rules: List[AutomationRule]
+
+class ClickstreamEvent(BaseModel):
+    event_type: str = Field(..., description="E.g., click, scroll, hover, focus, blur")
+    element: str | None = None
+    x: int | None = None
+    y: int | None = None
+    dwell_time_ms: int | None = Field(None, ge=0)
+    path: str = Field(..., description="The URL path where the event occurred")
+    timestamp: float = Field(..., description="Client-side timestamp")
+
+class BehavioralIngestRequest(BaseModel):
+    session_id: str = Field(..., min_length=16, max_length=128)
+    events: List[ClickstreamEvent]
+    client_metadata: Dict[str, Any] = Field(default_factory=dict)

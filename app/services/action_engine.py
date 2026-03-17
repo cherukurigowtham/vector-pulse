@@ -2,7 +2,6 @@ import logging
 import time
 import json
 from typing import Dict, Any, List, Optional
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
