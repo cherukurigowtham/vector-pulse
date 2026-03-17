@@ -700,6 +700,12 @@ async def run_risk_analysis(
         if isinstance(risk_config, dict)
         else 2.0
     )
+    # Add timeout wrapper to avoid stalling on slow/unresponsive signals
+    overall_timeout = (
+        risk_config.get("overall_timeout", 2.0)
+        if isinstance(risk_config, dict)
+        else 2.0
+    )
     try:
         results = await asyncio.wait_for(
             asyncio.gather(*tasks), timeout=overall_timeout
@@ -710,7 +716,7 @@ async def run_risk_analysis(
             False,  # is_velocity_flag
             False,  # is_sybil_flag
             (False, 0.0, 0.0),  # (is_price_anomaly, avg, std_dev)
-            0.0,  # trust_score
+            50.0,  # trust_score
             False,  # is_vpn_flag
             False,  # is_global_velocity_flag
             False,  # is_global_sybil_flag
@@ -725,6 +731,28 @@ async def run_risk_analysis(
             None,  # behavior_res
             {},  # plugin_results
             {},  # cluster_stats
+        ]
+    except Exception as e:
+        logging.error(f"Risk analysis failure: {e}")
+        results = [
+            False,
+            False,
+            (False, 0.0, 0.0),
+            50.0,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            (False, 0.0),
+            {},
+            False,
+            None,
+            {},
+            {},
         ]
     (
         is_velocity_flag,

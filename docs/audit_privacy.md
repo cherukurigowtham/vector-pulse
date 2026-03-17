@@ -22,7 +22,10 @@ Audit & Privacy Governance for Vector-Pulse
 - Compliance Roadmap
   - Align with SOC 2 / ISO 27001 controls; set a plan for regular audits and vulnerability management.
 
-Next steps
+- Next steps
 - Draft concrete retention policies, access control matrices, and data-maps for PII.
+- Define data retention windows (e.g., audit logs: 7 years; risk signals: 90 days) and purge/archival rules.
+- Add role-based access controls for audit data; implement audit trails for access events.
+- Align with SOC 2 / ISO 27001 controls; map controls to in-repo policies and procedures.
 - Add automated redaction hooks and tests for risk_result payloads.
 - Extend audit schema and migrations as needed.

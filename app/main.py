@@ -3,6 +3,7 @@ import logging
 from uuid import uuid4
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import RedirectResponse
 from app.observability.tracing import init_tracing
 from app.core.json_logger import configure_json_logging
 from app.core.redis import r
