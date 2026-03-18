@@ -22,8 +22,12 @@ class ForensicsService:
         explain_data = await r.get(f"explain:{risk_id}")
         context = json.loads(explain_data) if explain_data else {}
         
-        # 3. LLM-Style Synthesis (Deterministic Forensic Logic)
-        narrative = self._synthesize_forensic_narrative(audit, context)
+        # 3. LLM-Style Synthesis (Cognitive Forensic Logic)
+        from app.services.llm_service import llm_service
+        narrative = await llm_service.generate_adjudication(audit, context)
+        
+        if not narrative:
+            narrative = self._synthesize_forensic_narrative(audit, context)
         
         return {
             "risk_id": risk_id,

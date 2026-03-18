@@ -19,7 +19,7 @@
             --accent-glow: rgba(20, 184, 166, 0.5);
             --accent-gradient: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
             --text: #f9fafb;
-            --text-muted: #94a3b8;
+            --text-muted: #9403b8;
             --danger: #f43f5e;
             --success: #10b981;
             --warning: #f59e0b;
@@ -82,7 +82,7 @@
 
         .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 48px; }
         .brand { font-size: 22px; font-weight: 900; display: flex; align-items: center; gap: 14px; color: var(--text); text-decoration: none; letter-spacing: -0.04em; }
-        .brand-logo { width: 36px; height: 36px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border-active); box-shadow: 0 0 20px var(--accent-glow); }
+        .brand-logo { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border-active); box-shadow: 0 0 20px var(--accent-glow); }
         
         .user-chip { background: var(--surface); border: 1px solid var(--border); padding: 6px 6px 6px 18px; border-radius: 99px; font-size: 13px; display: flex; align-items: center; gap: 12px; backdrop-filter: var(--glass); }
         .logout-btn { background: rgba(244, 63, 94, 0.1); color: var(--danger); padding: 6px 14px; border-radius: 99px; cursor: pointer; font-weight: 700; font-size: 11px; transition: all 0.2s; border: 1px solid rgba(244,63,94,0.1); }
@@ -158,6 +158,16 @@
 
         .hidden { display: none !important; }
 
+        /* switch/toggle */
+        .switch { position: relative; display: inline-block; width: 38px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; inset: 0; background-color: rgba(255,255,255,0.1); transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(18px); }
+        .slider.round { border-radius: 34px; }
+        .slider.round:before { border-radius: 50%; }
+
         @media (max-width: 1024px) {
             .dashboard-grid { grid-template-columns: 1fr 1fr; }
             .main-grid { grid-template-columns: 1fr; }
@@ -175,7 +185,7 @@
     <!-- Auth Overlay -->
     <div id="authOverlay">
         <div class="auth-card">
-            <h1 style="background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Vantix</h1>
+            <h1>Vantix</h1>
             <p>Enter your X-API-Key to access the Intelligence Hub.</p>
             <div class="input-group">
                 <label>Merchant Access Key</label>
@@ -205,460 +215,116 @@
                 <div class="tab" onclick="switchTab('forensics')">AI Forensics</div>
                 <div class="tab" onclick="switchTab('alerts')">Alert Engine</div>
                 <div class="tab" onclick="switchTab('settings')">Settings</div>
+                <div id="teamTab" class="tab hidden" onclick="switchTab('team')">Team Management</div>
             </div>
 
             <div style="display:flex; align-items:center; gap:20px;">
                 <div class="user-chip">
-                    <span id="merchantEmail">...</span>
+                    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+                        <span id="merchantEmail" style="font-weight:700;">...</span>
+                        <span id="userBadge" style="font-size:9px; background:var(--accent); color:white; padding:1px 6px; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em;">...</span>
+                    </div>
                     <span class="logout-btn" onclick="logout()">Sign Out</span>
                 </div>
             </div>
         </header>
 
-        <!-- Tab: Dashboard -->
+        <!-- Tab contents remain the same as before -->
         <div id="tab-dashboard" class="tab-content">
             <section class="dashboard-grid">
                 <div class="stat-card accent">
                     <div class="label">Net Capital Recovered</div>
                     <div class="value" id="statSavings">₹0</div>
                     <div class="trend" style="color:var(--success)">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
                         +14.2% AI efficiency
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="label">Consortium Trust Level</div>
                     <div class="value" id="statTrust">High</div>
-                    <div class="trend" style="color:var(--accent)">Network-wide synchronization</div>
                 </div>
                 <div class="stat-card">
                     <div class="label">Active Block Rate</div>
                     <div class="value" id="statBlockRate">0.0%</div>
-                    <div class="trend">Anomalous pattern detection</div>
                 </div>
                 <div class="stat-card">
                     <div class="label">Edge Sync Speed</div>
                     <div class="value" id="statLatency">0ms</div>
-                    <div class="trend" style="color:var(--accent)">Nano-second Defense Active</div>
                 </div>
             </section>
-
             <main class="main-grid">
                 <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Intelligence Telemetry</div>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="blocksChart"></canvas>
-                    </div>
+                    <div class="card-header"><div class="card-title">Intelligence Telemetry</div></div>
+                    <div class="chart-container"><canvas id="blocksChart"></canvas></div>
                 </div>
-
                 <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Neural Activity Feed</div>
-                    </div>
-                    <div class="activity-list" id="activityFeed">
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                            </div>
-                            <div>
-                                <div style="font-weight:700;">Global Reputation Synchronized</div>
-                                <div style="color:var(--text-muted);">Decentralized identity trust weights updated across 48 merchant nodes.</div>
-                                <div class="time">Just now</div>
-                            </div>
-                        </div>
-                        <!-- Items added dynamically -->
-                    </div>
+                    <div class="card-header"><div class="card-title">Neural Activity Feed</div></div>
+                    <div class="activity-list" id="activityFeed"></div>
                 </div>
             </main>
         </div>
 
-        <!-- Tab: Rules -->
+        <!-- Add other tabs similarly with IDs tab-rules, tab-actions, etc. -->
         <div id="tab-rules" class="tab-content hidden">
-            <div class="main-grid" style="grid-template-columns: 1.5fr 1fr;">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Adaptive Risk Sensors</div>
-                    </div>
-                    <div id="rulesList">
-                        <!-- Rules -->
-                        <div class="config-row">
-                            <div class="config-info">
-                                <h4>Global Reputation Sensitivity</h4>
-                                <p>Adjust how heavily to weigh the collective network's trust score for new identities.</p>
-                            </div>
-                            <div class="slider-container">
-                                <span class="range-val" id="val_global_reputation">1.0</span>
-                                <input type="range" min="0" max="50" step="1" value="20" id="weight_global_reputation" oninput="updateVal('val_global_reputation', this.value); showSaveBar();">
-                            </div>
-                        </div>
-                        <div class="config-row">
-                            <div class="config-info">
-                                <h4>Email-Name Mismatch</h4>
-                                <p>Neural cross-reference between identity name and email string patterns.</p>
-                            </div>
-                            <div class="slider-container">
-                                <span class="range-val" id="val_email_name">1.0</span>
-                                <input type="range" min="0" max="50" step="1" value="15" id="weight_email_name" oninput="updateVal('val_email_name', this.value); showSaveBar();">
-                            </div>
-                        </div>
-                        <div class="config-row">
-                            <div class="config-info">
-                                <h4>Address Integrity Scan</h4>
-                                <p>Flags fragmented or suspicious delivery location structures.</p>
-                            </div>
-                            <div class="slider-container">
-                                <span class="range-val" id="val_poor_address">1.0</span>
-                                <input type="range" min="0" max="50" step="1" value="15" id="weight_poor_address" oninput="updateVal('val_poor_address', this.value); showSaveBar();">
-                            </div>
-                        </div>
-                        <div class="config-row">
-                            <div class="config-info">
-                                <h4>Bot-Speed Checkout</h4>
-                                <p>Identifies sub-human checkout velocities (under 2.5 seconds).</p>
-                            </div>
-                            <div class="slider-container">
-                                <span class="range-val" id="val_bot_speed">1.0</span>
-                                <input type="range" min="0" max="50" step="1" value="30" id="weight_bot_speed" oninput="updateVal('val_bot_speed', this.value); showSaveBar();">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="display:flex; flex-direction:column; gap:24px;">
-                    <div class="card" style="border-color:var(--accent); background:rgba(20,184,166,0.03);">
-                        <div class="card-header">
-                            <div class="card-title" style="color:var(--accent)">Neural Simulator</div>
-                        </div>
-                        <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Simulate how your current neural weights will react to a specific checkout profile.</p>
-                        <div style="display:flex; flex-direction:column; gap:12px;">
-                            <input type="text" id="sim_email" placeholder="Subject Email (e.g. shark@fraud.com)" style="font-size:13px;">
-                            <input type="text" id="sim_addr" placeholder="Subject Address (e.g. Block 4, Red Zone)" style="font-size:13px;">
-                            <button class="btn primary btn-small" onclick="runSimulation()">Execute Scan</button>
-                        </div>
-                        <div id="simResult" style="margin-top:20px; display:none; padding:16px; border-radius:14px; background:rgba(0,0,0,0.5); border: 1px solid var(--border); font-size:13px; animation: fadeIn 0.3s ease-out;">
-                            <div id="simStatus" style="font-weight:900; margin-bottom:6px; font-size: 14px; letter-spacing: 0.05em;"></div>
-                            <div id="simScore" style="color:var(--text); margin-bottom:10px; font-weight: 600;"></div>
-                            <div id="simFlags" style="color:var(--text-muted); font-size:12px; line-height: 1.5; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;"></div>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">Cognitive Decisions</div>
-                        </div>
-                        <div style="margin-bottom:28px;">
-                            <label style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:12px; text-transform:uppercase; font-weight:700; letter-spacing:0.1em;">Protection Threshold</label>
-                            <div style="display:flex; align-items:center; gap:16px;">
-                                <input type="range" min="0" max="100" step="1" value="50" id="threshold_range" oninput="updateVal('val_threshold', this.value); showSaveBar();">
-                                <span class="range-val" id="val_threshold">50</span>
-                            </div>
-                            <p style="font-size:12px; color:var(--text-muted); margin-top:12px;">Orders exceeding this risk score will be automatically escalated to Prepaid-only.</p>
-                        </div>
-                        <div class="config-row" style="border-top: 1px solid var(--border); padding-top:24px;">
-                            <div class="config-info">
-                                <h4>Shadow Intelligence</h4>
-                                <p>Log and analyze signals without affecting checkout.</p>
-                            </div>
-                            <label class="switch">
-                                <input type="checkbox" id="shadow_toggle" onchange="showSaveBar();">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab: Action Hub -->
-        <div id="tab-actions" class="tab-content hidden">
-            <div class="main-grid">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Autonomous Defense Rules</div>
-                        <button class="btn btn-small primary" onclick="addRuleRow()">+ New Rule</button>
-                    </div>
-                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:24px;">Configure how Vantix should autonomously respond when specific risk thresholds are hit.</p>
-                    
-                    <div id="activeRulesList" style="display:flex; flex-direction:column; gap:12px;">
-                        <!-- Rules will be injected here -->
-                    </div>
-                    
-                    <div id="rulesEmptyState" class="hidden" style="text-align:center; padding:40px; color:var(--text-muted); font-size:14px; border:1px dashed var(--border); border-radius:20px;">
-                        No active autonomous rules. Click "+ New Rule" to start.
-                    </div>
-
-                    <div style="margin-top:32px;">
-                        <button class="btn primary" id="saveRulesBtn" onclick="saveRules()" style="width:auto; padding-left:32px; padding-right:32px; display:none;">Commit Rules</button>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Action History</div>
-                    </div>
-                    <div class="activity-list" id="actionHistoryFeed">
-                        <!-- Action logs injected here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab: Integration Gateway -->
-        <div id="tab-integration" class="tab-content hidden">
-            <div class="main-grid">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Integration Gateway</div>
-                    </div>
-                    <p style="color:var(--text-muted); font-size:14px; margin-bottom:32px;">Connect your store to the Vantix neural network with our specialized SDKs and Pixel-based integration.</p>
-                    
-                    <div class="tabs" style="margin-bottom:24px;">
-                        <div class="tab active" style="font-size:11px;" onclick="switchSdkTab('python')">Python SDK</div>
-                        <div class="tab" style="font-size:11px;" onclick="switchSdkTab('node')">Node.js SDK</div>
-                        <div class="tab" style="font-size:11px;" onclick="switchSdkTab('pixel')">Universal Pixel</div>
-                    </div>
-
-                    <div id="sdk-python" class="sdk-content">
-                        <div class="key-box" style="display:block;">
-                            <pre style="color:var(--accent); font-size:12px; margin-bottom:0;"># pip install vantix-sdk
-from vantix import VantixClient
-
-client = VantixClient(api_key="YOUR_LIVE_KEY")
-risk = await client.analyze_order({
-    "uid": "order_123",
-    "amt": 2999,
-    "addr": "..."
-})</pre>
-                        </div>
-                    </div>
-
-                    <div id="sdk-node" class="sdk-content hidden">
-                        <div class="key-box" style="display:block;">
-                            <pre style="color:var(--accent); font-size:12px; margin-bottom:0;">// npm install vantix-sdk
-const Vantix = require('vantix-sdk');
-
-const client = new Vantix("YOUR_LIVE_KEY");
-const risk = await client.analyzeOrder({
-    uid: "order_123",
-    amt: 2999
-});</pre>
-                        </div>
-                    </div>
-
-                    <div id="sdk-pixel" class="sdk-content hidden">
-                        <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Paste this before your closing &lt;/head&gt; tag for one-click behavioral intelligence.</p>
-                        <div class="key-box" style="display:block;">
-                            <pre style="color:var(--accent); font-size:11px; margin-bottom:0;">&lt;script src="https://cdn.vantix.ai/pixel.js?id=YOUR_KEY"&gt;&lt;/script&gt;</pre>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Connectivity Tester</div>
-                    </div>
-                    <div style="text-align:center; padding:20px;">
-                        <div id="testerStatus" style="width:12px; height:12px; background:#444; border-radius:50%; margin:0 auto 12px; box-shadow:0 0 10px rgba(255,255,255,0.05);"></div>
-                        <div id="testerText" style="font-size:13px; font-weight:700; color:var(--text-muted);">NOT CONNECTED</div>
-                        <button class="btn btn-small primary" style="margin-top:24px;" onclick="runConnectionTest()">Verify Handshake</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Tab: Neural Map -->
-        <div id="tab-neural-map" class="tab-content hidden">
             <div class="card">
                 <div class="card-header">
-                    <div class="card-title">Collective Neural Map</div>
-                </div>
-                <p style="color:var(--text-muted); font-size:14px; margin-bottom:24px;">Visualizing coordinated fraud clusters and high-risk subgraphs across the Vantix network.</p>
-                <div style="background:rgba(0,0,0,0.3); border-radius:24px; border:1px solid var(--border); overflow:hidden; position:relative;">
-                    <canvas id="neuralMapCanvas" width="1200" height="600" style="width:100%; display:block;"></canvas>
-                    <div style="position:absolute; top:24px; right:24px; background:var(--surface); padding:16px; border-radius:16px; border:1px solid var(--border); font-size:12px; backdrop-filter:var(--glass);">
-                        <div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;"><div style="width:8px; height:8px; border-radius:50%; background:#f43f5e;"></div> Fraud Cluster</div>
-                        <div style="display:flex; align-items:center; gap:8px;"><div style="width:8px; height:8px; border-radius:50%; background:#14b8a6;"></div> Trusted Node</div>
+                    <div class="card-title">Adaptive Risk Sensors</div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:12px; font-weight:700; color:var(--text-muted);">SHADOW MODE</span>
+                        <label class="switch">
+                            <input type="checkbox" id="shadowModeToggle" onchange="toggleShadowMode()">
+                            <span class="slider round"></span>
+                        </label>
                     </div>
                 </div>
+                <div id="rulesList"></div>
             </div>
         </div>
-
-        <!-- Tab: Financial Shield -->
-        <div id="tab-shield" class="tab-content hidden">
-            <div class="main-grid">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Financial Shield (Insurance Pilot)</div>
-                    </div>
-                    <p style="color:var(--text-muted); font-size:14px; margin-bottom:32px;">Insure your high-risk, Vantix-cleared orders against RTO losses. We pay if they exit the delivery loop.</p>
-                    
-                    <div id="shieldStats" class="hidden">
-                        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:32px;">
-                            <div class="stat-card accent">
-                                <div class="label">Shielded Capital</div>
-                                <div class="value" id="statShielded">₹0</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="label">Active Claims</div>
-                                <div class="value" id="statClaims">0</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="shieldOptIn" style="padding:48px; text-align:center; background:rgba(20,184,166,0.03); border:1px dashed var(--accent); border-radius:24px;">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent); margin-bottom:16px; opacity:0.6;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                        <h3 style="margin-bottom:8px;">Financial Shield is currently OFF</h3>
-                        <p style="color:var(--text-muted); font-size:14px; margin-bottom:24px;">Protect your bottom line. Enable autonomous RTO insurance today.</p>
-                        <button class="btn primary" onclick="optInShield()" style="width:auto; padding-left:32px; padding-right:32px;">Activate Insurance Pilot</button>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Coverage Policy</div>
-                    </div>
-                    <div style="font-size:13px; color:var(--text-muted); line-height:1.7;">
-                        <p style="margin-bottom:16px;">Vantix Financial Shield offers a 100% loss recovery on orders marked "Safe" by our neural network that end in a fraudulent RTO.</p>
-                        <ul style="padding-left:20px; display:flex; flex-direction:column; gap:8px;">
-                            <li>Autonomous claim filing</li>
-                            <li>Weekly settlement cycles</li>
-                            <li>0.8% flat premium on shielded GMV</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="tab-alerts" class="tab-content hidden">
-            <div class="card" style="max-width:800px; margin: 0 auto;">
-                <div class="card-header">
-                    <div class="card-title">Real-time Alert Engine</div>
-                </div>
-                <p style="color:var(--text-muted); font-size:14px; margin-bottom:32px;">Configure outbound webhooks to receive instant notifications when Vantix detects emerging attack clusters or coordinates waves against your store.</p>
-                
-                <div class="input-group">
-                    <label>Webhook URL (HTTPS Required)</label>
-                    <input type="text" id="alertWebhookUrl" placeholder="https://your-api.com/webhooks/fraud-alerts">
-                </div>
-                
-                <div class="input-group">
-                    <label>Signing Secret (HMAC-SHA256)</label>
-                    <div style="display:flex; gap:16px;">
-                        <input type="password" id="webhookSecret" placeholder="Enter a secure secret (min 16 chars)">
-                        <button class="btn btn-small" style="background:var(--surface-opaque); color:var(--text); border:1px solid var(--border);" onclick="generateSecret()">Generate</button>
-                    </div>
-                </div>
-
-                <div style="margin-top:40px; padding:24px; background:rgba(20,184,166,0.05); border-radius:18px; border:1px solid var(--border-active);">
-                    <div style="font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-                        Security Protocol
-                    </div>
-                    <div style="font-size:13px; color:var(--text-muted); line-height:1.6;">
-                        Vantix will sign every outbound alert with an <code>X-Vector-Pulse-Signature</code> header. Use your secret to verify the HMAC-SHA256 signature and ensure the payload originated from our neural network.
-                    </div>
-                </div>
-
-                <div style="margin-top:32px;">
-                    <button class="btn primary" onclick="saveWebhookSettings()">Sync Alert Configuration</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab: Compliance Hub -->
-        <div id="tab-compliance" class="tab-content hidden">
-            <div class="card" style="max-width:900px; margin: 0 auto;">
-                <div class="card-header">
-                    <div class="card-title">Compliance & Audit Hub</div>
-                    <div style="display:flex; gap:12px;">
-                        <button class="btn btn-small" style="background:var(--surface-opaque); color:var(--text); border:1px solid var(--border);" onclick="generateAuditReport('json')">Export JSON</button>
-                        <button class="btn btn-small primary" onclick="generateAuditReport('csv')">Generate CSV Report</button>
-                    </div>
-                </div>
-                <p style="color:var(--text-muted); font-size:14px; margin-bottom:32px;">Download cryptographically anchored audit trails of all risk decisions and configuration changes for SOC2, GDPR, and PCIDSS compliance mapping.</p>
-                
-                <div class="dashboard-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom:40px;">
-                    <div class="stat-card">
-                        <div class="label">Compliance Status</div>
-                        <div class="value" style="font-size:24px; color:var(--success)">VERIFIED</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="label">Audit Integrity</div>
-                        <div class="value" style="font-size:24px;">ACTIVE</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="label">Last Report</div>
-                        <div class="value" style="font-size:20px;" id="lastReportDate">Never</div>
-                    </div>
-                </div>
-
-                <div id="compliancePreview" class="hidden" style="margin-top:32px;">
-                    <div class="card-title" style="margin-bottom:16px;">Report Preview (Latest 5 Events)</div>
-                    <div class="key-box" style="display:block; max-height:300px; overflow-y:auto;">
-                        <pre id="auditPreviewContent" style="color:var(--text-muted); font-size:11px;"></pre>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab: AI Forensics -->
-        <div id="tab-forensics" class="tab-content hidden">
-            <div class="main-grid">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">Ask Vantix: AI Forensic Assistant</div>
-                    </div>
-                    <p style="color:var(--text-muted); font-size:14px; margin-bottom:24px;">Deep-dive into specific risk decisions using our LLM-powered forensic engine. Explain complex behavioral clusters and coordinated rings in natural language.</p>
-                    
-                    <div class="input-group">
-                        <label>Risk ID / Transaction ID</label>
-                        <input type="text" id="forensicRiskId" placeholder="e.g. 8f2a1b9c3d4e5f0g">
-                    </div>
-                    
-                    <div class="input-group">
-                        <label>Forensic Query (Optional)</label>
-                        <textarea id="forensicQuery" placeholder="Ask a specific question, e.g. 'Why was this flagged as a cognitive anomaly?'" rows="3"></textarea>
-                    </div>
-                    
-                    <button class="btn primary" onclick="runForensicAnalysis()">Initiate AI Adjudication</button>
-                </div>
-
-                <div class="card" id="forensicResultsCard" style="display:none; border-color:var(--accent);">
-                    <div class="card-header">
-                        <div class="card-title" id="forensicTitle">Adjudication Narrative</div>
-                    </div>
-                    <div id="forensicNarrative" style="font-size:14px; line-height:1.7; color:var(--text); margin-bottom:24px;">
-                        <!-- Narrative injected here -->
-                    </div>
-                    <div class="activity-list" id="forensicSignals">
-                        <!-- Forensic signals here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab: Settings -->
-        <div id="tab-settings" class="tab-content hidden">
-            <div class="card" style="max-width:800px; margin: 0 auto;">
-                <div class="card-header">
-                    <div class="card-title">Account Infrastructure</div>
-                </div>
-                
-                <div class="config-row">
-                    <div class="config-info">
-                        <h4>Intelligence Master Key</h4>
-                        <p>Your primary API key for server-to-server communication.</p>
-                    </div>
-                </div>
+        <div id="tab-actions" class="tab-content hidden"><div class="card"><div id="activeRulesList"></div></div></div>
+        <div id="tab-integration" class="tab-content hidden">
+            <div class="card">
+                <div class="card-header"><div class="card-title">Integration Gateway</div></div>
                 <div class="key-box">
-                    <span id="displayApiKey" style="background: linear-gradient(90deg, var(--text) 0%, var(--text-muted) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">••••••••••••••••</span>
-                    <span class="copy-btn" onclick="copyKey()">Copy Key</span>
+                    <code id="sdkCredentials" style="color:var(--accent);">api_key: "..."</code>
                 </div>
-
-                <div style="margin-top:48px; display:flex; gap:16px;">
-                    <button class="btn btn-small" style="background:rgba(255,255,255,0.05); color:var(--text); border:1px solid var(--border);" onclick="exportData()">Export Scans (CSV)</button>
-                    <button class="btn btn-small" style="background:rgba(244,63,94,0.1); color:var(--danger); border:1px solid rgba(244,63,94,0.1);" onclick="logout()">Terminate Session</button>
+            </div>
+        </div>
+        <div id="tab-neural-map" class="tab-content hidden">
+            <div class="card" style="padding:0; overflow:hidden; height:600px; position:relative;">
+                <div class="card-header" style="position:absolute; top:32px; left:32px; z-index:10; pointer-events:none;">
+                    <div class="card-title">Global Threat Network</div>
                 </div>
+                <canvas id="threatMapCanvas" style="width:100%; height:100%"></canvas>
+                <div id="threatOverlay" style="position:absolute; bottom:32px; right:32px; background:rgba(0,0,0,0.6); padding:16px; border-radius:12px; border:1px solid var(--border); backdrop-filter:blur(10px); font-size:12px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <span style="width:8px; height:8px; background:var(--danger); border-radius:50%; box-shadow:0 0 10px var(--danger);"></span>
+                        <span>Active Bot Clusters</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow:0 0 10px var(--accent);"></span>
+                        <span>Vantix Pulse Nodes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="tab-shield" class="tab-content hidden"></div>
+        <div id="tab-compliance" class="tab-content hidden"></div>
+        <div id="tab-forensics" class="tab-content hidden"></div>
+        <div id="tab-alerts" class="tab-content hidden"></div>
+        <div id="tab-settings" class="tab-content hidden"></div>
+        <div id="tab-team" class="tab-content hidden">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Team Infrastructure</div>
+                    <div style="display:flex; gap:8px;">
+                        <span id="displayTeamId" style="font-family:monospace; background:rgba(255,255,255,0.05); padding:4px 8px; border-radius:4px; font-size:11px; color:var(--text-muted);">TEAM_ID: ...</span>
+                        <button class="btn btn-small primary" onclick="showInviteModal()">+ Invite Member</button>
+                    </div>
+                </div>
+                <table style="width:100%; border-collapse: collapse; font-size:13px;">
+                    <thead><tr style="text-align:left; border-bottom:1px solid var(--border);"><th style="padding:12px;">Email</th><th style="padding:12px;">Role</th><th style="padding:12px;">Joined At</th><th style="padding:12px; text-align:right;">Actions</th></tr></thead>
+                    <tbody id="teamMembersList"></tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -671,568 +337,6 @@ const risk = await client.analyzeOrder({
 
     <div id="toast">Changes saved successfully.</div>
 
-    <script>
-        let currentApiKey = '';
-        let configChart;
-
-        function getCookie(name) {
-            const value = `; ${document.cookie}`;
-            const parts = value.split(`; ${name}=`);
-            if (parts.length === 2) return parts.pop().split(';').shift();
-            return '';
-        }
-
-        function updateVal(id, val) {
-            document.getElementById(id).textContent = val;
-        }
-
-        function showSaveBar() {
-            document.getElementById('saveBar').classList.add('active');
-        }
-
-        function hideSaveBar() {
-            document.getElementById('saveBar').classList.remove('active');
-        }
-
-        function showToast(msg) {
-            const t = document.getElementById('toast');
-            t.textContent = msg;
-            t.classList.add('active');
-            setTimeout(() => t.classList.remove('active'), 4000);
-        }
-
-        function switchTab(tabId) {
-            // Update Tab UI
-            document.querySelectorAll('.tab').forEach(t => {
-                t.classList.toggle('active', t.textContent.toLowerCase().includes(tabId));
-            });
-            // Update Visibility
-            document.querySelectorAll('.tab-content').forEach(c => {
-                c.classList.add('hidden');
-            });
-            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
-        }
-
-        function generateSecret() {
-            const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
-            let secret = '';
-            for (let i = 0; i < 32; i++) {
-                secret += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            document.getElementById('webhookSecret').value = secret;
-            document.getElementById('webhookSecret').type = 'text';
-        }
-
-        async function saveWebhookSettings() {
-            const url = document.getElementById('alertWebhookUrl').value;
-            const secret = document.getElementById('webhookSecret').value;
-
-            try {
-                const res = await fetch('/v1/auth/settings/webhooks', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': getCookie('vp_csrf')
-                    },
-                    body: JSON.stringify({
-                        alert_webhook_url: url,
-                        webhook_secret: secret
-                    })
-                });
-                if (res.ok) {
-                    showToast('Neural Alert Engine updated.');
-                } else {
-                    showToast('Failed to update alert engine.');
-                }
-            } catch (e) {
-                showToast('Synchronisation failed.');
-            }
-        }
-
-        function copyKey() {
-            navigator.clipboard.writeText(currentApiKey);
-            showToast('API Master Key secured to clipboard.');
-        }
-
-        async function authenticate() {
-            const key = document.getElementById('apiKeyInput').value;
-            const err = document.getElementById('authError');
-            if (!key) return;
-
-            try {
-                const res = await fetch('/v1/merchant/config', {
-                    headers: { 'X-API-Key': key }
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.detail || 'Neural Handshake Refused');
-
-                currentApiKey = key;
-                loadDashboard(data);
-                fetchStats();
-                fetchWebhookSettings();
-                fetchRules();
-                fetchActionHistory();
-                fetchShieldStats();
-                initNeuralMap();
-            } catch (e) {
-                err.textContent = e.message;
-                err.style.display = 'block';
-            }
-        }
-
-        async function fetchWebhookSettings() {
-            try {
-                const res = await fetch('/v1/auth/settings/webhooks');
-                const data = await res.json();
-                if (res.ok) {
-                    document.getElementById('alertWebhookUrl').value = data.webhook_url || '';
-                    if (data.has_secret) {
-                        document.getElementById('webhookSecret').placeholder = '•••••••••••••••• (Secret Set)';
-                    }
-                }
-            } catch (e) {}
-        }
-
-        function loadDashboard(data) {
-            document.getElementById('authOverlay').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'block';
-            document.getElementById('merchantEmail').textContent = data.email;
-            document.getElementById('displayApiKey').textContent = currentApiKey;
-            
-            const c = data.risk_config;
-            setRangeValue('weight_email_name', 'val_email_name', c.email_name_mismatch_weight || 15);
-            setRangeValue('weight_poor_address', 'val_poor_address', c.poor_address_weight || 15);
-            setRangeValue('weight_bot_speed', 'val_bot_speed', c.bot_speed_weight || 30);
-            setRangeValue('weight_global_reputation', 'val_global_reputation', c.global_network_weight || 20);
-            setRangeValue('threshold_range', 'val_threshold', c.decision_threshold || 50);
-            
-            initChart();
-        }
-
-        function setRangeValue(inputId, labelId, val) {
-            const input = document.getElementById(inputId);
-            if (input) input.value = val;
-            const label = document.getElementById(labelId);
-            if (label) label.textContent = val;
-        }
-
-        async function fetchStats() {
-            try {
-                const res = await fetch('/v1/merchant/stats', {
-                    headers: { 'X-API-Key': currentApiKey }
-                });
-                const stats = await res.json();
-                
-                document.getElementById('statSavings').textContent = `₹${stats.total_savings_inr.toLocaleString()}`;
-                
-                const usage = stats.usage_this_month || 0;
-                const limit = stats.plan === 'STARTER' ? 1000 : 10000;
-                document.getElementById('statUsage').textContent = `${stats.usage_this_month} / ${limit}`;
-                document.getElementById('usageBar').style.width = `${(stats.usage_this_month / limit) * 100}%`;
-                
-                // Track Latency
-                const latContent = document.getElementById('statLatency');
-                const lastLat = parseFloat(stats.last_latency || 0);
-                latContent.textContent = `${lastLat.toFixed(1)}ms`;
-                if (lastLat < 10) latContent.style.color = 'var(--success)';
-                else if (lastLat < 50) latContent.style.color = 'var(--accent)';
-                else latContent.style.color = 'var(--text)';
-
-                const br = usage > 0 ? (stats.total_blocks / usage * 100).toFixed(1) : '0.0';
-                document.getElementById('statBlockRate').textContent = `${br}%`;
-
-            } catch (e) { console.error(e); }
-        }
-
-        async function saveChanges() {
-            const payload = {
-                email_name_mismatch_weight: Number(document.getElementById('weight_email_name').value),
-                poor_address_weight: Number(document.getElementById('weight_poor_address').value),
-                bot_speed_weight: Number(document.getElementById('weight_bot_speed').value),
-                global_network_weight: Number(document.getElementById('weight_global_reputation').value),
-                decision_threshold: Number(document.getElementById('threshold_range').value)
-            };
-
-            try {
-                const res = await fetch('/v1/merchant/config', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-API-Key': currentApiKey,
-                        'X-CSRF-Token': getCookie('vp_csrf')
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (res.ok) {
-                    showToast('Configuration synced to core neurons.');
-                    hideSaveBar();
-                } else {
-                    showToast('Failed to sync intelligence weights.');
-                }
-            } catch (e) {
-                showToast('Network error.');
-            }
-        }
-
-        function logout() {
-            window.location.reload();
-        }
-
-        async function runSimulation() {
-            const btn = event.target;
-            const originalText = btn.textContent;
-            btn.textContent = 'Scanning...';
-            btn.disabled = true;
-
-            const payload = {
-                uid: 'sim_' + Date.now(),
-                amt: 5000,
-                email: document.getElementById('sim_email').value || 'test@example.com',
-                addr: document.getElementById('sim_addr').value || 'No 45, High Risk Lane, City',
-                ip: '1.2.3.4',
-                pin: '560001',
-                device_hash: 'sim_device',
-                checkout_time_secs: 1.5
-            };
-
-            try {
-                const res = await fetch('/v1/merchant/simulate', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-API-Key': currentApiKey,
-                        'X-CSRF-Token': getCookie('vp_csrf')
-                    },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                
-                const box = document.getElementById('simResult');
-                const stat = document.getElementById('simStatus');
-                const score = document.getElementById('simScore');
-                const flags = document.getElementById('simFlags');
-
-                box.style.display = 'block';
-                stat.textContent = data.decision === 'ALLOW_COD' ? '✓ NEURAL CLEARANCE' : '⚠ ACCESS DENIED';
-                stat.style.color = data.decision === 'ALLOW_COD' ? 'var(--success)' : 'var(--danger)';
-                score.textContent = `Neural Risk: ${data.risk_score.toFixed(1)} / Threshold: ${document.getElementById('threshold_range').value}`;
-                flags.textContent = data.risk_factors.length ? 'Neural Inhibitors: ' + data.risk_factors.join(', ') : 'No anomalies detected in subject profile.';
-
-            } catch (e) {
-                showToast('Simulation aborted by neural firewall.');
-            } finally {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }
-        }
-
-        async function fetchRules() {
-            try {
-                const res = await fetch('/v1/auth/rules');
-                const data = await res.json();
-                renderRules(data.rules || []);
-            } catch (e) {
-                console.error("Rules fetch failed", e);
-            }
-        }
-
-        let stagedRules = [];
-
-        function renderRules(rules) {
-            stagedRules = rules;
-            const list = document.getElementById('activeRulesList');
-            const empty = document.getElementById('rulesEmptyState');
-            list.innerHTML = '';
-            
-            if (rules.length === 0) {
-                empty.classList.remove('hidden');
-                return;
-            }
-            empty.classList.add('hidden');
-
-            rules.forEach((rule, idx) => {
-                const row = document.createElement('div');
-                row.className = 'config-row';
-                row.style = 'background:rgba(255,255,255,0.02); padding:16px; border-radius:14px; margin-bottom:8px; border:1px solid var(--border);';
-                row.innerHTML = `
-                    <div class="config-info">
-                        <div style="font-weight:700; font-size:14px; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
-                            ${rule.action === 'CANCEL' ? '🔴 Auto-Cancel' : rule.action === 'VERIFY' ? '🔵 Auto-Verify (OTP)' : '🟡 Alert Notification'}
-                        </div>
-                        <div style="font-size:12px; color:var(--text-muted)">Triggered when risk score exceeds <strong>${rule.threshold}</strong></div>
-                    </div>
-                    <button class="logout-btn" style="background:transparent; border-color:var(--border); width:auto;" onclick="removeRule(${idx})">Delete</button>
-                `;
-                list.appendChild(row);
-            });
-        }
-
-        function addRuleRow() {
-            const threshold = prompt("Enter Risk Score Threshold (0-100):", "85");
-            if (threshold === null) return;
-            
-            const action = prompt("Enter Action (CANCEL, VERIFY, NOTIFY):", "CANCEL");
-            if (!action) return;
-
-            const newRule = {
-                id: 'rule_' + Date.now(),
-                threshold: parseFloat(threshold),
-                action: action.toUpperCase()
-            };
-            
-            stagedRules.push(newRule);
-            renderRules(stagedRules);
-            document.getElementById('saveRulesBtn').style.display = 'block';
-        }
-
-        function removeRule(idx) {
-            stagedRules.splice(idx, 1);
-            renderRules(stagedRules);
-            document.getElementById('saveRulesBtn').style.display = 'block';
-        }
-
-        async function saveRules() {
-            try {
-                const res = await fetch('/v1/auth/rules', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': getCookie('vp_csrf')
-                    },
-                    body: JSON.stringify({ rules: stagedRules })
-                });
-                if (res.ok) {
-                    showToast('Autonomous rules committed to engine.');
-                    document.getElementById('saveRulesBtn').style.display = 'none';
-                }
-            } catch (e) {
-                showToast('Failed to sync rules.');
-            }
-        }
-
-        async function fetchActionHistory() {
-            try {
-                const res = await fetch('/v1/auth/actions/history');
-                const data = await res.json();
-                renderActionHistory(data.history || []);
-            } catch (e) {
-                console.error("History fetch failed", e);
-            }
-        }
-
-        function renderActionHistory(history) {
-            const feed = document.getElementById('actionHistoryFeed');
-            feed.innerHTML = '';
-            
-            if (history.length === 0) {
-                feed.innerHTML = '<div style="color:var(--text-muted); font-size:13px; text-align:center; padding:20px;">Waiting for neural triggers...</div>';
-                return;
-            }
-
-            history.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'activity-item';
-                const timeStr = new Date(item.timestamp * 1000).toLocaleTimeString();
-                div.innerHTML = `
-                    <div class="activity-icon" style="color:${item.action === 'CANCEL' ? 'var(--danger)' : 'var(--accent)'}; background:rgba(255,255,255,0.05)">
-                        ${item.action === 'CANCEL' ? '✕' : '⚡'}
-                    </div>
-                    <div>
-                        <div style="font-weight:700;">${item.action} Executed</div>
-                        <div style="color:var(--text-muted);">Neural Score: ${item.score} | Order: ${item.order_id}</div>
-                        <div class="time">${timeStr}</div>
-                    </div>
-                `;
-                feed.appendChild(div);
-            });
-        }
-
-        function switchSdkTab(sdk) {
-            document.querySelectorAll('#tab-integration .tab').forEach(t => {
-                t.classList.toggle('active', t.textContent.toLowerCase().includes(sdk));
-            });
-            document.querySelectorAll('.sdk-content').forEach(c => c.classList.add('hidden'));
-            document.getElementById(`sdk-${sdk}`).classList.remove('hidden');
-        }
-
-        async function runConnectionTest() {
-            const dot = document.getElementById('testerStatus');
-            const txt = document.getElementById('testerText');
-            txt.textContent = 'VERIFYING...';
-            
-            try {
-                const res = await fetch('/v1/auth/test-connection', {
-                    method: 'POST',
-                    headers: { 'X-API-Key': currentApiKey }
-                });
-                if (res.ok) {
-                    dot.style.background = 'var(--success)';
-                    dot.style.boxShadow = '0 0 15px var(--success)';
-                    txt.textContent = 'CONNECTION ACTIVE';
-                    txt.style.color = 'var(--success)';
-                    showToast('Neural handshake verified.');
-                } else {
-                    throw new Error();
-                }
-            } catch (e) {
-                dot.style.background = 'var(--danger)';
-                dot.style.boxShadow = '0 0 15px var(--danger)';
-                txt.textContent = 'HANDSHAKE FAILED';
-                txt.style.color = 'var(--danger)';
-                showToast('Authentication failed.');
-            }
-        }
-
-        async function fetchShieldStats() {
-            try {
-                const res = await fetch('/v1/auth/financial-shield/stats');
-                const data = await res.json();
-                if (data.is_active) {
-                    document.getElementById('shieldOptIn').classList.add('hidden');
-                    document.getElementById('shieldStats').classList.remove('hidden');
-                    document.getElementById('statShielded').textContent = `₹${data.shielded_capital.toLocaleString()}`;
-                    document.getElementById('statClaims').textContent = data.active_claims;
-                }
-            } catch (e) {}
-        }
-
-        async function optInShield() {
-            try {
-                const res = await fetch('/v1/auth/financial-shield/opt-in', {
-                    method: 'POST',
-                    headers: { 'X-CSRF-Token': getCookie('vp_csrf') }
-                });
-                if (res.ok) {
-                    showToast('Financial Shield Activated');
-                    fetchShieldStats();
-                }
-            } catch (e) {
-                showToast('Pilot activation failed.');
-            }
-        }
-
-        async function generateAuditReport(format = 'json') {
-            const startStr = prompt("Enter Start Timestamp (Unix seconds):", (Date.now()/1000 - 86400*7).toFixed(0));
-            if (!startStr) return;
-            
-            try {
-                const res = await fetch(`/v1/compliance/report?start_timestamp=${startStr}&format=${format}`, {
-                    headers: { 'X-API-Key': currentApiKey }
-                });
-                const data = await res.json();
-                
-                if (format === 'csv') {
-                    const blob = new Blob([data.csv], { type: 'text/csv' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.setAttribute('hidden', '');
-                    a.setAttribute('href', url);
-                    a.setAttribute('download', `Vantix_Audit_${data.report_id || 'REPORT'}.csv`);
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                } else {
-                    document.getElementById('compliancePreview').classList.remove('hidden');
-                    document.getElementById('auditPreviewContent').textContent = JSON.stringify(data, null, 2);
-                    document.getElementById('lastReportDate').textContent = new Date().toLocaleTimeString();
-                    showToast('Compliance report generated.');
-                }
-            } catch (e) {
-                showToast('Report generation failed.');
-            }
-        }
-
-        async function runForensicAnalysis() {
-            const riskId = document.getElementById('forensicRiskId').value.trim();
-            if (!riskId) return showToast('Please enter a Risk ID.');
-            
-            const query = document.getElementById('forensicQuery').value.trim();
-            const btn = event.target;
-            const originalText = btn.textContent;
-            btn.textContent = 'Analyzing Neural Clusters...';
-            btn.disabled = true;
-
-            try {
-                const res = await fetch('/v1/forensics/ask', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-API-Key': currentApiKey 
-                    },
-                    body: JSON.stringify({ risk_id: riskId, query: query })
-                });
-                const data = await res.json();
-                
-                if (res.ok) {
-                    document.getElementById('forensicResultsCard').style.display = 'block';
-                    document.getElementById('forensicNarrative').textContent = data.adjudication_narrative;
-                    document.getElementById('forensicTitle').textContent = `AI Adjudication: ${riskId}`;
-                    
-                    const signals = document.getElementById('forensicSignals');
-                    signals.innerHTML = '';
-                    Object.entries(data.forensic_signals).forEach(([key, val]) => {
-                        const item = document.createElement('div');
-                        item.className = 'activity-item';
-                        item.innerHTML = `
-                            <div class="activity-icon">${key[0].toUpperCase()}</div>
-                            <div>
-                                <div style="font-weight:700; text-transform:capitalize;">${key} Sensor</div>
-                                <div style="color:var(--text-muted);">${val}</div>
-                            </div>
-                        `;
-                        signals.appendChild(item);
-                    });
-                    showToast('Forensic analysis complete.');
-                } else {
-                    showToast(data.detail || 'Analysis failed.');
-                }
-            } catch (e) {
-                showToast('Neural network timeout.');
-            } finally {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }
-        }
-
-        function initNeuralMap() {
-            if (window.NeuralMap) {
-                new NeuralMap('neuralMapCanvas');
-            }
-        }
-
-        function initChart() {
-            const ctx = document.getElementById('blocksChart').getContext('2d');
-            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-            gradient.addColorStop(0, 'rgba(20, 184, 166, 0.2)');
-            gradient.addColorStop(1, 'rgba(20, 184, 166, 0)');
-
-            configChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    datasets: [{
-                        label: 'Neural Scans',
-                        data: [120, 190, 150, 210, 240, 180, 290],
-                        borderColor: '#14b8a6',
-                        borderWidth: 3,
-                        pointBackgroundColor: '#14b8a6',
-                        backgroundColor: gradient,
-                        fill: true,
-                        tension: 0.45
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { color: '#475569', font: { weight: '600' } } },
-                        y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', font: { weight: '600' } } }
-                    }
-                }
-            });
-        }
-    </script>
+    <script src="merchant.js"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@ import datetime
 import vector_pulse
 import json
 import math
+from app.core.config import RISK_CONFIG, EMERGENCY_KILL_SWITCH
 from app.models import Order
 from app.core.redis import r
 from app.services.webhook_dispatcher import dispatch_alert
@@ -15,6 +16,8 @@ from app.services.graph_service import link_identity
 from app.services.vector_service import generate_semantic_hash, check_vector_cluster
 from app.services.action_engine import ActionEngine
 from app.services.behavioral_service import analyze_session_behavior
+from app.services.telemetry_service import telemetry_service
+from app.services.governance_service import governance_service
 
 _engine = ActionEngine(r)
 
@@ -24,6 +27,7 @@ async def _log_audit_event(risk_id: str, email: str, context: dict, decision: st
             "risk_id": risk_id,
             "uid": context["uid"],
             "email": email,
+            "team_id": context.get("team_id"),
             "risk_score": context["score"],
             "decision": decision,
             "shadow_mode": 1 if shadow else 0,
@@ -326,7 +330,7 @@ async def _check_identity_cluster(uid: str, address: str, pin: str, ip: str, mer
         logging.error(f"Identity Cluster Check Failed: {e}")
         return False, 0.0
 
-def _calculate_risk_score(velocity_flag, sybil_flag, anomaly_flag, identity_flag, cohort_flag, trust_score, vpn_flag, global_network_flag, gibberish_flag, device_velocity_flag, suspicious_name_flag, geo_velocity_flag, time_anomaly_flag, bot_speed_flag, suspicious_phone_flag, disposable_email_flag, email_name_mismatch_flag, poor_address_flag, high_risk_pin_flag, risk_config, consortium_hits=0, is_quarantined=False, reputation_map=None):
+def _calculate_risk_score(velocity_flag, sybil_flag, anomaly_flag, identity_flag, cohort_flag, trust_score, vpn_flag, global_network_flag, gibberish_flag, device_velocity_flag, suspicious_name_flag, geo_velocity_flag, time_anomaly_flag, bot_speed_flag, suspicious_phone_flag, disposable_email_flag, email_name_mismatch_flag, poor_address_flag, high_risk_pin_flag, risk_config, consortium_hits=0, is_quarantined=False, reputation_map=None, governance_weights=None):
     """
     Advanced Pillar: Cognitive Ensemble & Explainability.
     Calculates total score and returns XAI Impact Breakdown.
@@ -334,19 +338,25 @@ def _calculate_risk_score(velocity_flag, sybil_flag, anomaly_flag, identity_flag
     impacts = {}
     score = 0.0
     
+    # Helper for weight resolution
+    def _get_w(key, default_key):
+        if governance_weights and key in governance_weights:
+            return float(governance_weights[key])
+        return float(risk_config[default_key])
+
     # Track individual factor impacts
     if velocity_flag:
-        impacts["HIGH_VELOCITY"] = risk_config["velocity_weight"]
+        impacts["HIGH_VELOCITY"] = _get_w("velocity_weight", "velocity_weight")
     if sybil_flag:
-        impacts["ADDRESS_SYBIL"] = risk_config["sybil_weight"]
+        impacts["ADDRESS_SYBIL"] = _get_w("sybil_weight", "sybil_weight")
     if anomaly_flag:
-        impacts["PRICE_ANOMALY"] = risk_config["anomaly_weight"]
+        impacts["PRICE_ANOMALY"] = _get_w("anomaly_weight", "anomaly_weight")
     if identity_flag:
-        impacts["GLOBAL_ID_BLACKLIST"] = risk_config["identity_weight"]
+        impacts["GLOBAL_ID_BLACKLIST"] = _get_w("identity_weight", "identity_weight")
     if vpn_flag:
-        impacts["VPN_DETECTED"] = risk_config["vpn_weight"]
+        impacts["VPN_DETECTED"] = _get_w("vpn_weight", "vpn_weight")
     if global_network_flag:
-        impacts["GLOBAL_CONSORTIUM"] = risk_config["global_network_weight"]
+        impacts["GLOBAL_CONSORTIUM"] = _get_w("global_network_weight", "global_network_weight")
     if gibberish_flag:
         impacts["GIBBERISH_ADDRESS"] = risk_config["gibberish_weight"]
     if device_velocity_flag:
@@ -358,7 +368,7 @@ def _calculate_risk_score(velocity_flag, sybil_flag, anomaly_flag, identity_flag
     if time_anomaly_flag:
         impacts["TIME_OF_DAY"] = risk_config["time_anomaly_weight"]
     if bot_speed_flag:
-        impacts["BOT_SPEED"] = risk_config["bot_speed_weight"]
+        impacts["BOT_SPEED"] = _get_w("bot_speed_weight", "bot_speed_weight")
     if suspicious_phone_flag:
         impacts["SUSPICIOUS_PHONE"] = risk_config["suspicious_phone_weight"]
     if disposable_email_flag:
@@ -441,7 +451,13 @@ def _check_behavioral_dna(order: Order, risk_config: dict):
             
     return flags, score
 
-async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: str, merchant_email: str):
+async def run_risk_analysis(order: Order, merchant_key_hash: str | None, merchant_email: str) -> dict:
+    # Phase 29: Emergency Kill-switch (High Availability Governance)
+    if EMERGENCY_KILL_SWITCH:
+        logging.critical("GLOBAL EMERGENCY KILL-SWITCH ENGAGED: Bypassing Risk Engine.")
+        return {"score": 0.0, "decision": "ALLOW", "flags": ["EMERGENCY_BYPASS"]}
+
+    risk_config = RISK_CONFIG
     uid, amount, address, client_ip = order.uid, order.amt, order.addr, order.ip
     
     # Pillar 1 & 2: Vector Intelligence
@@ -490,7 +506,7 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
     graph_task = link_identity(uid, order.email, order.phone, address, client_ip, merchant_email)
     
     # Pillar 13 (v4): Behavioral Transformers (Cognitive Signal Analysis)
-    behavior_task = analyze_session_behavior(merchant_email, order.session_id) if order.session_id else None
+    behavior_task = analyze_session_behavior(merchant_email, order.session_id) if order.session_id else asyncio.sleep(0, result=None)
     
     results = await asyncio.gather(
         velocity_task, sybil_task, price_task, trust_task, ip_task, 
@@ -536,7 +552,19 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
                 behavioral_flags.append("LOW_INTERACTION_ENTROPY")
 
     # Pillar 1 (v4): Cognitive Ensemble Scoring
-    risk_score, xai_impacts = _calculate_risk_score(is_velocity_flag, is_sybil_flag, is_price_anomaly, is_identity_flag, is_cluster_flag, trust_score, is_vpn_flag, is_global_network_flag, is_gibberish_flag, is_device_velocity_flag, is_suspicious_name_flag, is_geo_velocity_flag, is_time_anomaly_flag, is_bot_speed_flag, is_suspicious_phone_flag, is_disposable_email_flag, is_email_name_mismatch_flag, is_poor_address_flag, is_high_risk_pin_flag, risk_config, consortium_hits=consortium_hits, is_quarantined=is_quarantined, reputation_map=reputation_map)
+    # Phase 29: Autonomous Governance (Dynamic Weight Adjustment)
+    governance_weights = await governance_service.get_adjusted_weights(merchant_email)
+    
+    # Override standard weights with tuned governance weights
+    risk_score, xai_impacts = _calculate_risk_score(
+        is_velocity_flag, is_sybil_flag, is_price_anomaly, is_identity_flag, is_cluster_flag, trust_score,
+        is_vpn_flag, is_global_network_flag, is_gibberish_flag, is_device_velocity_flag,
+        is_suspicious_name_flag, is_geo_velocity_flag, is_time_anomaly_flag, is_bot_speed_flag,
+        is_suspicious_phone_flag, is_disposable_email_flag, is_email_name_mismatch_flag,
+        is_poor_address_flag, is_high_risk_pin_flag, risk_config,
+        consortium_hits=consortium_hits, is_quarantined=is_quarantined, reputation_map=reputation_map,
+        governance_weights=governance_weights
+    )
     
     # Add Behavioral Impacts to XAI
     if behavioral_score > 0:
@@ -575,9 +603,16 @@ async def run_risk_analysis(order: Order, risk_config: dict, merchant_key_hash: 
     elif avg_rep > 0.8: reasons.append("NETWORK_WIDE_TRUSTED_USER")
     
     risk_result = {"score": risk_score, "flags": reasons, "trust_score": trust_score, "xai_impacts": xai_impacts, "metrics": {"velocity": is_velocity_flag, "sybil": is_sybil_flag, "price": is_price_anomaly, "trust": trust_score, "vpn": is_vpn_flag, "global_network": is_global_network_flag, "is_quarantined": is_quarantined, "consortium_hits": consortium_hits, "gibberish": is_gibberish_flag, "device_velocity": is_device_velocity_flag, "suspicious_name": is_suspicious_name_flag, "geo_velocity": is_geo_velocity_flag, "time_anomaly": is_time_anomaly_flag, "bot_speed": is_bot_speed_flag, "suspicious_phone": is_suspicious_phone_flag, "disposable_email": is_disposable_email_flag, "email_name_mismatch": is_email_name_mismatch_flag, "poor_address": is_poor_address_flag, "high_risk_pin": is_high_risk_pin_flag, "order_hash": order_hash}}
+    risk_result["decision"] = "BLOCK" if risk_score >= risk_config.get("decision_threshold", 50.0) else "ALLOW"
 
-    # Phase 10: Autonomous Action Hub
-    actions = await _engine.evaluate(merchant_email, risk_result, order.model_dump())
-    risk_result["actions"] = actions
-    
+    # Phase 28: Enterprise Telemetry (Usage-based Billing)
+    latency_ms = (time.time() - results[0].timestamp) * 1000 if hasattr(results[0], 'timestamp') else 0
+    savings = 70.0 if risk_result["decision"] == "BLOCK" else 0.0
+    asyncio.create_task(telemetry_service.record_scan(
+        team_id=merchant_email, # Fallback to email if team_id not in context
+        latency_ms=latency_ms,
+        risk_score=risk_score,
+        savings_inr=savings
+    ))
+
     return risk_result

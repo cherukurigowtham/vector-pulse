@@ -39,6 +39,11 @@ async def signup(req: AuthRequest, response: Response, request: Request):
     # but store the salted PBKDF2 hash inside for verification.
     legacy_hash = hashlib.sha256(raw_key.encode()).hexdigest()
 
+    # Phase 24 Migration: Create Team and User in DB
+    from app.db.database import AUDIT_STORE
+    team_id = secrets.token_hex(8)
+    await AUDIT_STORE.create_team(team_id, f"{req.email}'s Team", req.email)
+
     async with r.pipeline() as pipe:
         pipe.hset(f"user:{req.email}", mapping={
             "pwd_hash": pwd_hash,
@@ -47,6 +52,8 @@ async def signup(req: AuthRequest, response: Response, request: Request):
             "key_prefix": key_meta["key_prefix"],
             "key_suffix": key_meta["key_suffix"],
             "plan": "free",
+            "role": "ADMIN",
+            "team_id": team_id
         })
         pipe.hset(f"apikey:{legacy_hash}", mapping={
             "email": req.email,
@@ -55,6 +62,8 @@ async def signup(req: AuthRequest, response: Response, request: Request):
             "salt": key_meta["salt"],
             "key_prefix": key_meta["key_prefix"],
             "key_suffix": key_meta["key_suffix"],
+            "role": "ADMIN",
+            "team_id": team_id,
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
         })
         pipe.sadd("admin:all_keys", legacy_hash)
@@ -120,13 +129,16 @@ async def reset_password(req: ResetPasswordRequest):
 async def logout(request: Request, response: Response):
     session_id = request.cookies.get("vp_session")
     if session_id:
-        email = await r.get(f"session:{session_id}")
+        session_data = await r.hgetall(f"session:{session_id}")
+        email = session_data.get("email")
         async with r.pipeline() as pipe:
             pipe.delete(f"session:{session_id}")
+            pipe.delete(f"csrf:{session_id}")
             if email:
                 pipe.srem(f"session_index:{email}", session_id)
             await pipe.execute()
     response.delete_cookie("vp_session")
+    response.delete_cookie("vp_csrf")
     return {"message": "Logged out successfully"}
 
 @router.post("/pilot-request", summary="Submit a pilot request from the landing page")
@@ -176,6 +188,8 @@ async def register(req: RegisterRequest, request: Request):
                 "plan": req.plan,
                 "key_hash": key_meta["key_hash"],
                 "salt": key_meta["salt"],
+                "role": "ADMIN",
+                "team_id": f"team_{secrets.token_hex(4)}",
                 "key_prefix": key_meta["key_prefix"],
                 "key_suffix": key_meta["key_suffix"],
                 "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -215,6 +229,8 @@ async def request_free_key(req: PublicRegisterRequest, request: Request):
                 "plan": "free",
                 "key_hash": key_meta["key_hash"],
                 "salt": key_meta["salt"],
+                "role": "VIEWER",
+                "team_id": f"team_{secrets.token_hex(4)}",
                 "key_prefix": key_meta["key_prefix"],
                 "key_suffix": key_meta["key_suffix"],
                 "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),

@@ -11,7 +11,7 @@ from app.core.helpers import (
     _has_custom_risk_profile, _log_risk_profile_change, _log_event,
     _find_key_hash_by_email, _key_preview, _is_admin_email
 )
-from app.core.security import require_api_key, require_admin, require_csrf
+from app.core.security import require_api_key, require_admin, require_csrf, require_role
 from app.services.action_engine import ActionEngine
 
 engine = ActionEngine(r)
@@ -55,7 +55,9 @@ async def auth_me(request: Request):
     return {
         "email": email,
         "api_key": preview,
-        "is_admin": _is_admin_email(email),
+        "role": user_data.get("role", "VIEWER"),
+        "team_id": user_data.get("team_id"),
+        "is_admin": user_data.get("role") == "ADMIN" or _is_admin_email(email),
         "risk_profile": _resolve_risk_config(key_profile) if key_hash else dict(RISK_CONFIG),
         "metrics": {
             "usage": usage,
@@ -66,6 +68,16 @@ async def auth_me(request: Request):
             "pct": min(100, round((usage / limit) * 100)) if limit > 0 else 0
         }
     }
+
+@router.get("/team/members", summary="Get organization members")
+async def get_team_members(session: dict = Depends(require_role(["ADMIN", "ANALYST"]))):
+    from app.db.database import AUDIT_STORE
+    team_id = session.get("team_id")
+    if not team_id:
+        raise HTTPException(status_code=400, detail="User not associated with a team")
+    
+    members = await AUDIT_STORE.get_team_members(team_id)
+    return {"team_id": team_id, "members": members}
 
 @router.get("/auth/reporting", summary="Get merchant-facing reporting for the Signal Hub")
 async def auth_reporting(request: Request):
@@ -90,7 +102,14 @@ async def auth_reporting(request: Request):
 
     usage = int(res[0] or 0)
     savings = float(res[1] or 0)
-    recent_rows = await AUDIT_STORE.fetch_recent_risk_audits(email, limit=12)
+    
+    team_id = user_data.get("team_id")
+    if not team_id:
+        # Fallback for legacy users without a team_id in user hash
+        user_info = await AUDIT_STORE.get_user_role_and_team(email)
+        team_id = user_info["team_id"] if user_info else "personal"
+
+    recent_rows = await AUDIT_STORE.fetch_recent_risk_audits(team_id, limit=12)
 
     factor_counts: dict[str, int] = {}
     summary = {
@@ -166,7 +185,7 @@ async def auth_settings(request: Request):
     }
 
 @router.post("/auth/settings", summary="Update merchant account settings")
-async def update_auth_settings(update: MerchantSettingsUpdate, request: Request):
+async def update_auth_settings(update: MerchantSettingsUpdate, session: dict = Depends(require_role(["ADMIN"]))):
     session_id = request.cookies.get("vp_session")
     if not session_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -225,7 +244,7 @@ async def get_webhook_settings(request: Request):
     }
 
 @router.post("/auth/settings/webhooks", summary="Update merchant webhook settings")
-async def update_webhook_settings(update: WebhookSettingsUpdate, request: Request, _csrf = Depends(require_csrf)):
+async def update_webhook_settings(update: WebhookSettingsUpdate, session: dict = Depends(require_role(["ADMIN"]))):
     session_id = request.cookies.get("vp_session")
     if not session_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -247,7 +266,7 @@ async def update_webhook_settings(update: WebhookSettingsUpdate, request: Reques
     return {"status": "success", "webhook_url": fields.get("alert_webhook_url", "")}
 
 @router.post("/auth/upgrade-request", summary="Request a paid plan upgrade")
-async def request_upgrade(req: UpgradeRequest, request: Request, _csrf = Depends(require_csrf)):
+async def request_upgrade(req: UpgradeRequest, session: dict = Depends(require_role(["ADMIN"]))):
     session_id = request.cookies.get("vp_session")
     if not session_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -304,7 +323,7 @@ async def get_rules(request: Request):
     return {"rules": rules}
 
 @router.post("/auth/rules", summary="Update merchant automation rules")
-async def update_rules(update: AutomationRulesUpdate, request: Request, _csrf = Depends(require_csrf)):
+async def update_rules(update: AutomationRulesUpdate, session: dict = Depends(require_role(["ADMIN"]))):
     session_id = request.cookies.get("vp_session")
     if not session_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -351,13 +370,15 @@ async def get_merchant_stats(merchant: dict = Depends(require_api_key)):
     total_blocks = int(await r.get(f"stats:blocks:{key_hash}") or 0)
     total_savings = int(await r.get(f"stats:savings:{key_hash}") or 0)
     
+    team_id = merchant.get("team_id") or email
+    
     return {
         "email": email,
         "usage_this_month": usage,
         "plan": merchant["data"].get("plan", "starter"),
         "total_blocks": total_blocks,
         "total_savings_inr": total_savings,
-        "recent_activity": await AUDIT_STORE.fetch_recent_risk_audits(email, limit=5)
+        "recent_activity": await AUDIT_STORE.fetch_recent_risk_audits(team_id, limit=5)
     }
 
 @router.get("/merchant/config", summary="Merchant: Fetch current risk profile weights")
@@ -369,8 +390,9 @@ async def get_merchant_config(merchant: dict = Depends(require_api_key)):
     }
 
 @router.post("/merchant/config", summary="Merchant: Update risk profile weights")
-async def update_merchant_config(req: RiskConfigUpdateRequest, merchant: dict = Depends(require_api_key), _csrf = Depends(require_csrf)):
+async def update_merchant_config(req: RiskConfigUpdateRequest, merchant: dict = Depends(require_api_key), session: dict = Depends(require_role(["ADMIN", "ANALYST"]))):
     key_hash = merchant["key_hash"]
+    team_id = merchant.get("team_id") or session.get("team_id")
     profile = merchant["data"]
     previous_config = await _resolve_risk_config(profile)
     payload = req.model_dump(exclude_none=True)
@@ -382,7 +404,7 @@ async def update_merchant_config(req: RiskConfigUpdateRequest, merchant: dict = 
         await r.hset(f"apikey:{key_hash}", mapping=updates)
     new_profile = await r.hgetall(f"apikey:{key_hash}")
     new_config = await _resolve_risk_config(new_profile)
-    await _log_risk_profile_change(merchant["email"], f"merchant:{merchant['email']}", "UPDATE", previous_config, new_config)
+    await _log_risk_profile_change(merchant["email"], team_id or f"merchant:{merchant['email']}", "UPDATE", previous_config, new_config)
     return {"email": merchant["email"], "risk_config": new_config, "is_custom": _has_custom_risk_profile(new_profile)}
 
 @router.post("/auth/test-connection", summary="SDK: Test API key connectivity")
@@ -390,7 +412,7 @@ async def test_connection(merchant: dict = Depends(require_api_key)):
     return {"status": "success", "authenticated_as": merchant["email"]}
 
 @router.post("/auth/financial-shield/opt-in", summary="Opt-in to RTO Insurance pilot")
-async def financial_shield_opt_in(request: Request, _csrf = Depends(require_csrf)):
+async def financial_shield_opt_in(session: dict = Depends(require_role(["ADMIN"]))):
     session_id = request.cookies.get("vp_session")
     if not session_id: raise HTTPException(status_code=401)
     email = await r.get(f"session:{session_id}")
@@ -415,3 +437,51 @@ async def financial_shield_stats(request: Request):
         "active_claims": 0,
         "premium_accrued": 1250 if is_active == "true" else 0
     }
+
+@router.get("/v1/team/members", summary="Get list of team members")
+async def get_team_members(session: dict = Depends(require_role(["ADMIN", "ANALYST"]))):
+    team_id = session.get("team_id")
+    if not team_id:
+        return []
+    return await AUDIT_STORE.get_team_members(team_id)
+
+@router.post("/v1/team/invite", summary="Invite a new member to the team")
+async def invite_member(email: str, role: str, session: dict = Depends(require_role(["ADMIN"]))):
+    team_id = session.get("team_id")
+    inviter = session.get("email")
+    if not team_id or not inviter:
+        raise HTTPException(status_code=400, detail="Missing team or inviter context")
+    
+    from app.services.email_service import email_service
+    invite_id = await AUDIT_STORE.create_invitation(team_id, email, role, inviter)
+    
+    # Audit & Professional Notification Dispatch
+    _log_event("TEAM_INVITATION_CREATED", email=email, role=role, team_id=team_id, inviter=inviter)
+    await email_service.send_team_invitation(email, "Your Merchant Team", invite_id, inviter)
+    
+    return {"status": "success", "invite_id": invite_id}
+
+@router.get("/v1/team/invites", summary="Get pending team invitations")
+async def get_team_invites(session: dict = Depends(require_role(["ADMIN", "ANALYST"]))):
+    team_id = session.get("team_id")
+    if not team_id:
+        return []
+    return await AUDIT_STORE.get_team_invitations(team_id)
+
+@router.post("/v1/risk/feedback", summary="Submit feedback on a risk adjudication")
+async def submit_risk_feedback(risk_id: str, feedback_type: str, session: dict = Depends(require_role(["ADMIN", "ANALYST"]))):
+    """
+    Phase 29: Autonomous Governance Feedback.
+    Allows manual correction of AI decisions, feeding the RL loop.
+    """
+    merchant_email = session.get("email")
+    if not merchant_email:
+        raise HTTPException(status_code=400, detail="Merchant context missing")
+        
+    from app.services.governance_service import governance_service
+    await governance_service.record_feedback(merchant_email, risk_id, feedback_type)
+    
+    # Audit log the feedback
+    logging.info(f"Merchant {merchant_email} submitted {feedback_type} for risk {risk_id}")
+    
+    return {"status": "feedback_recorded", "risk_id": risk_id}

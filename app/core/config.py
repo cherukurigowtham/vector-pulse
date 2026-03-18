@@ -113,3 +113,14 @@ ADMIN_KEY = os.getenv("ADMIN_SECRET_KEY", "local-dev-admin-key")
 SESSION_COOKIE_SECURE = ENVIRONMENT == "production"
 RISK_FAIL_CLOSED = _env_bool("RISK_FAIL_CLOSED", False)  # Default to fail-open (safer for business)
 GLOBAL_PULSE_SALT = os.getenv("GLOBAL_PULSE_SALT", "vector-pulse-collective-defense-2024")
+
+# JWT Configuration
+JWT_SECRET = os.getenv("JWT_SECRET", "vantix-dev-secret-keep-it-safe")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_EXPIRATION_HOURS = 24
+
+# AI Forensics Configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+# Platform Governance
+EMERGENCY_KILL_SWITCH = _env_bool("EMERGENCY_KILL_SWITCH", False)
