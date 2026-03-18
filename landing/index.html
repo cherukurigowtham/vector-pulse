@@ -889,6 +889,7 @@
   </footer>
 
   <script>
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://vector-pulse-api.onrender.com';
     // Original Functional Logic Restored & Integrated
     const modal = document.getElementById("keyModal");
     let currentMode = "signup";
@@ -959,7 +960,7 @@
       const password = document.getElementById("passwordInput").value;
       const btn = document.getElementById("authSubmitBtn");
       const err = document.getElementById("modal-error");
-      const endpoint = currentMode === "signup" ? "/v1/auth/signup" : "/v1/auth/login";
+      const endpoint = currentMode === "signup" ? `${API_BASE}/api/v1/security/auth/signup` : `${API_BASE}/api/v1/security/auth/login`;
 
       btn.disabled = true;
       btn.textContent = currentMode === "signup" ? "Creating..." : "Logging in...";
@@ -985,7 +986,7 @@
     }
 
     async function handleLogout() {
-      await fetch("/v1/auth/logout", { method: "POST", credentials: "same-origin" });
+      await fetch(`${API_BASE}/api/v1/security/auth/logout`, { method: "POST", credentials: "same-origin" });
       setLoggedOutNav();
       document.getElementById("authFlow").style.display = "block";
       document.getElementById("dashboardFlow").style.display = "none";
@@ -994,7 +995,7 @@
 
     async function checkSession(openHub = false) {
       try {
-        const response = await fetch("/v1/auth/me", { credentials: "same-origin" });
+        const response = await fetch(`${API_BASE}/api/v1/security/auth/me`, { credentials: "same-origin" });
         if (!response.ok) { setLoggedOutNav(); return false; }
         const data = await response.json();
         setLoggedInNav(data.is_admin);

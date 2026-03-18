@@ -1,4 +1,3 @@
-import aiosqlite
 import json
 import logging
 import time
@@ -114,10 +113,6 @@ class PostgresStore:
             row = await conn.fetchrow("SELECT * FROM risk_audit WHERE risk_id = $1", risk_id)
             return dict(row) if row else None
 
-    async def update_outcome(self, risk_id: str, status: str):
-        async with self.pool.acquire() as conn:
-            await conn.execute("UPDATE risk_audit SET outcome = $1 WHERE risk_id = $2", status, risk_id)
-
     async def fetch_risk_profile_audits(self, team_id: str, limit: int = 10):
         async with self.pool.acquire() as conn:
             rows = await conn.fetch("SELECT * FROM risk_profile_audit WHERE team_id = $1 ORDER BY timestamp DESC LIMIT $2", team_id, limit)
@@ -166,168 +161,9 @@ class PostgresStore:
         except:
             return False
 
-class SQLiteStore:
-    def __init__(self, path: str):
-        self.path = path
-        self.db = None
-        self.backend = "sqlite"
+from app.core.config import DATABASE_URL
 
-    async def create_invitation(self, team_id: str, email: str, role: str, inviter: str):
-        invitation_id = f"invite_{int(time.time())}_{email.split('@')[0]}"
-        await self.db.execute("""
-            INSERT INTO invitations (id, team_id, email, role, inviter, created_at, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (invitation_id, team_id, email, role, inviter, time.time(), "PENDING"))
-        await self.db.commit()
-        return invitation_id
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL must be configured securely for PostgreSQL. SQLite is unsupported.")
 
-    async def get_team_invitations(self, team_id: str):
-        async with self.db.execute("SELECT * FROM invitations WHERE team_id = ?", (team_id,)) as cursor:
-            rows = await cursor.fetchall()
-            return [dict(r) for r in rows]
-
-    async def update_invitation_status(self, invite_id: str, status: str):
-        await self.db.execute("UPDATE invitations SET status = ? WHERE id = ?", (status, invite_id))
-        await self.db.commit()
-
-    async def init(self):
-        # Connection pooling: Keep one connection open for the lifetime of the app
-        self.db = await aiosqlite.connect(self.path)
-        self.db.row_factory = aiosqlite.Row
-        await self.db.execute("""
-            CREATE TABLE IF NOT EXISTS risk_audit (
-                risk_id TEXT PRIMARY KEY,
-                uid TEXT,
-                email TEXT,
-                team_id TEXT,
-                risk_score REAL,
-                decision TEXT,
-                shadow_mode INTEGER,
-                reasons TEXT,
-                metrics TEXT,
-                timestamp REAL,
-                outcome TEXT DEFAULT 'PENDING'
-            )
-        """)
-        await self.db.execute("""
-            CREATE TABLE IF NOT EXISTS risk_profile_audit (
-                audit_id TEXT PRIMARY KEY,
-                email TEXT,
-                team_id TEXT,
-                actor TEXT,
-                action TEXT,
-                previous_config TEXT,
-                new_config TEXT,
-                timestamp REAL
-            )
-        """)
-        await self.db.execute("""
-            CREATE TABLE IF NOT EXISTS teams (
-                id TEXT PRIMARY KEY,
-                name TEXT,
-                owner_email TEXT,
-                created_at REAL
-            )
-        """)
-        await self.db.commit()
-        # Ensure legacy tables have team_id
-        try:
-            await self.db.execute("ALTER TABLE risk_audit ADD COLUMN team_id TEXT")
-        except:
-            pass
-        try:
-            await self.db.execute("ALTER TABLE risk_profile_audit ADD COLUMN team_id TEXT")
-        except:
-            pass
-        await self.db.commit()
-
-    async def close(self):
-        if self.db:
-            await self.db.close()
-
-    async def insert_risk_audit(self, p: dict):
-        await self.db.execute("""
-            INSERT INTO risk_audit (risk_id, uid, email, team_id, risk_score, decision, shadow_mode, reasons, metrics, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (p["risk_id"], p["uid"], p["email"], p.get("team_id"), p["risk_score"], p["decision"], p["shadow_mode"], p["reasons"], p["metrics"], p["timestamp"]))
-        await self.db.commit()
-
-    async def insert_risk_profile_audit(self, p: dict):
-        await self.db.execute("""
-            INSERT INTO risk_profile_audit (audit_id, email, team_id, actor, action, previous_config, new_config, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (p["audit_id"], p["email"], p.get("team_id"), p["actor"], p["action"], p["previous_config"], p["new_config"], p["timestamp"]))
-        await self.db.commit()
-
-    async def delete_user_audits(self, email: str):
-        await self.db.execute("DELETE FROM risk_audit WHERE email = ?", (email,))
-        await self.db.execute("DELETE FROM risk_profile_audit WHERE email = ?", (email,))
-        await self.db.commit()
-
-    async def fetch_risk_audit(self, risk_id: str):
-        if not self.db: return None
-        async with self.db.execute("SELECT * FROM risk_audit WHERE risk_id = ?", (risk_id,)) as cursor:
-            row = await cursor.fetchone()
-            return dict(row) if row else None
-
-    async def update_outcome(self, risk_id: str, status: str, reason: str | None = None):
-        if not self.db: return
-        await self.db.execute("UPDATE risk_audit SET outcome = ? WHERE risk_id = ?", (status, risk_id))
-        await self.db.commit()
-
-    async def fetch_risk_profile_audits(self, team_id: str, limit: int = 10):
-        async with self.db.execute("SELECT * FROM risk_profile_audit WHERE team_id = ? ORDER BY timestamp DESC LIMIT ?", (team_id, limit)) as cursor:
-            rows = await cursor.fetchall()
-            return [dict(r) for r in rows]
-
-    async def fetch_recent_risk_audits(self, team_id: str, limit: int = 12):
-        async with self.db.execute("SELECT risk_id, uid, risk_score, decision, reasons, timestamp, outcome FROM risk_audit WHERE team_id = ? ORDER BY timestamp DESC LIMIT ?", (team_id, limit)) as cursor:
-            rows = await cursor.fetchall()
-            return [dict(r) for r in rows]
-
-    async def fetch_all_merchant_audits(self, team_id: str, limit: int = 1000):
-        async with self.db.execute("SELECT risk_id, uid, risk_score, decision, reasons, timestamp, outcome, shadow_mode FROM risk_audit WHERE team_id = ? ORDER BY timestamp DESC LIMIT ?", (team_id, limit)) as cursor:
-            rows = await cursor.fetchall()
-            return [dict(r) for r in rows]
-
-    async def fetch_compliance_logs(self, team_id: str, start_ts: float, end_ts: float):
-        async with self.db.execute("SELECT * FROM risk_audit WHERE team_id = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC", (team_id, start_ts, end_ts)) as cursor:
-            risk_rows = await cursor.fetchall()
-        async with self.db.execute("SELECT * FROM risk_profile_audit WHERE team_id = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC", (team_id, start_ts, end_ts)) as cursor:
-            profile_rows = await cursor.fetchall()
-        return {
-            "risk_events": [dict(r) for r in risk_rows],
-            "profile_changes": [dict(r) for r in profile_rows]
-        }
-
-    async def get_user_role_and_team(self, email: str):
-        if not self.db: return None
-        async with self.db.execute("SELECT role, team_id FROM users WHERE email = ?", (email,)) as cursor:
-            row = await cursor.fetchone()
-            return dict(row) if row else None
-
-    async def create_team(self, team_id: str, name: str, owner_email: str):
-        if not self.db: return
-        await self.db.execute("INSERT INTO teams (id, name, owner_email, created_at) VALUES (?, ?, ?, ?)", (team_id, name, owner_email, time.time()))
-        await self.db.execute("INSERT INTO users (email, team_id, role, joined_at) VALUES (?, ?, ?, ?)", (owner_email, team_id, "ADMIN", time.time()))
-        await self.db.commit()
-
-    async def get_team_members(self, team_id: str):
-        if not self.db: return []
-        async with self.db.execute("SELECT email, role, joined_at FROM users WHERE team_id = ?", (team_id,)) as cursor:
-            rows = await cursor.fetchall()
-            return [dict(r) for r in rows]
-
-    async def healthcheck(self) -> bool:
-        try:
-            async with self.db.execute("SELECT 1") as cursor:
-                await cursor.fetchone()
-            return True
-        except:
-            return False
-
-from app.core.config import DATABASE_URL, AUDIT_DB
-if DATABASE_URL:
-    AUDIT_STORE = PostgresStore(DATABASE_URL)
-else:
-    AUDIT_STORE = SQLiteStore(AUDIT_DB)
+AUDIT_STORE = PostgresStore(DATABASE_URL)
