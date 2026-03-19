@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional, List, Dict
-from app.core.redis import r
+from app.core.redis import r, rk
 import logging
 
 class BaseRepository(ABC):
@@ -15,10 +15,10 @@ class BaseRepository(ABC):
     async def get_json(self, key: str) -> Optional[Dict[str, Any]]:
         """Utility for JSON-based Redis retrieval."""
         import json
-        data = await self.redis.get(key)
+        data = await self.redis.get(rk(key))
         return json.loads(data) if data else None
 
     async def set_json(self, key: str, data: Dict[str, Any], expire: int = 3600):
         """Utility for JSON-based Redis storage."""
         import json
-        await self.redis.setex(key, expire, json.dumps(data))
+        await self.redis.setex(rk(key), expire, json.dumps(data))

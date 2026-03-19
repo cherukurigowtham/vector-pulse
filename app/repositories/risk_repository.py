@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional
 from app.repositories.base_repository import BaseRepository
 from app.db.database import AUDIT_STORE
+from app.core.redis import rk
 
 class RiskRepository(BaseRepository):
     """
@@ -26,8 +27,8 @@ class RiskRepository(BaseRepository):
         """Updates real-time block/savings statistics in Redis."""
         async with self.redis.pipeline() as pipe:
             if decision == "BLOCK":
-                pipe.incr(f"stats:blocks:{key_hash}")
+                pipe.incr(rk(f"stats:blocks:{key_hash}"))
                 if savings > 0:
-                    pipe.incrbyfloat(f"stats:savings:{key_hash}", savings)
-            pipe.incr("total_blocks") if decision == "BLOCK" else None
+                    pipe.incrbyfloat(rk(f"stats:savings:{key_hash}"), savings)
+            pipe.incr(rk("total_blocks")) if decision == "BLOCK" else None
             await pipe.execute()

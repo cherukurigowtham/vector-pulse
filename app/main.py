@@ -28,7 +28,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# New Modular Router Injections (DDD Style)
+from app.routers import public
+
+# ... (other imports)
+
+app.include_router(public.router)
 app.include_router(risk_analysis.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(vault.router, prefix="/api/v1")

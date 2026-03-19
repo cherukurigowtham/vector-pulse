@@ -2,6 +2,7 @@ import logging
 import time
 import json
 from typing import Dict, Any, List, Optional
+from app.core.redis import rk
 
 logger = logging.getLogger(__name__)
 
@@ -16,14 +17,14 @@ class ActionEngine:
         self.redis = redis_client
 
     async def get_rules(self, merchant_id: str) -> List[Dict[str, Any]]:
-        rules_json = await self.redis.get(f"rules:{merchant_id}")
+        rules_json = await self.redis.get(rk(f"rules:{merchant_id}"))
         if not rules_json:
             # Default empty ruleset
             return []
         return json.loads(rules_json)
 
     async def save_rules(self, merchant_id: str, rules: List[Dict[str, Any]]):
-        await self.redis.set(f"rules:{merchant_id}", json.dumps(rules))
+        await self.redis.set(rk(f"rules:{merchant_id}"), json.dumps(rules))
 
     async def evaluate(self, merchant_id: str, risk_result: Dict[str, Any], event_data: Dict[str, Any]):
         """
@@ -63,11 +64,11 @@ class ActionEngine:
         return actions_triggered
 
     async def _log_action(self, merchant_id: str, action_info: Dict[str, Any]):
-        key = f"actions:{merchant_id}"
+        key = rk(f"actions:{merchant_id}")
         await self.redis.lpush(key, json.dumps(action_info))
         await self.redis.ltrim(key, 0, 99) # Keep last 100 actions
 
     async def get_action_history(self, merchant_id: str) -> List[Dict[str, Any]]:
-        key = f"actions:{merchant_id}"
+        key = rk(f"actions:{merchant_id}")
         items = await self.redis.lrange(key, 0, -1)
         return [json.loads(i) for i in items]

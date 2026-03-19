@@ -10,7 +10,7 @@ from app.models import (
 from app.core.redis import r
 from app.core.helpers import (
     _log_event, _key_metadata, _is_admin_email, 
-    _sliding_window_rate_limit
+    _sliding_window_rate_limit, _is_disposable_email
 )
 from app.core.security import ADMIN_KEY, _hash_password, _create_session
 from app.core.config import RATE_LIMITS
@@ -27,6 +27,13 @@ async def signup(req: AuthRequest, response: Response, request: Request):
     if _is_admin_email(req.email):
         raise HTTPException(status_code=403, detail="Sovereign Identity Reserved")
 
+    if _is_disposable_email(req.email):
+        raise HTTPException(status_code=400, detail="Registration with temporary or disposable email addresses is not permitted for enterprise security.")
+
+    # Strict check: Require basic business details for onboarding
+    if not req.full_name or not req.company_name:
+         raise HTTPException(status_code=400, detail="Full name and company name are required for merchant onboarding.")
+
     if await r.hexists(f"user:{req.email}", "pwd_hash"):
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -35,30 +42,33 @@ async def signup(req: AuthRequest, response: Response, request: Request):
     
     raw_key = f"vp_live_{secrets.token_urlsafe(32)}"
     key_meta = _key_metadata(raw_key)
-    # Important: We use sha256 for the lookup key (for fast indexing), 
-    # but store the salted PBKDF2 hash inside for verification.
     legacy_hash = hashlib.sha256(raw_key.encode()).hexdigest()
 
     # Phase 24 Migration: Create Team and User in DB
     from app.db.database import AUDIT_STORE
     team_id = secrets.token_hex(8)
-    await AUDIT_STORE.create_team(team_id, f"{req.email}'s Team", req.email)
+    await AUDIT_STORE.create_team(team_id, req.company_name or f"{req.email}'s Team", req.email)
 
     async with r.pipeline() as pipe:
         pipe.hset(f"user:{req.email}", mapping={
             "pwd_hash": pwd_hash,
             "salt": salt,
-            "key_hash": legacy_hash, # Lookup hint
+            "key_hash": legacy_hash,
             "key_prefix": key_meta["key_prefix"],
             "key_suffix": key_meta["key_suffix"],
             "plan": "free",
             "role": "ADMIN",
-            "team_id": team_id
+            "team_id": team_id,
+            "full_name": req.full_name,
+            "company_name": req.company_name,
+            "merchant_category": req.merchant_category or "unspecified",
+            "expected_volume": req.expected_monthly_volume or "0-100",
+            "onboarded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ")
         })
         pipe.hset(f"apikey:{legacy_hash}", mapping={
             "email": req.email,
             "plan": "free",
-            "key_hash": key_meta["key_hash"], # Salted PBKDF2
+            "key_hash": key_meta["key_hash"],
             "salt": key_meta["salt"],
             "key_prefix": key_meta["key_prefix"],
             "key_suffix": key_meta["key_suffix"],

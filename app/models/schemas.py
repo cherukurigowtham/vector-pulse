@@ -85,6 +85,10 @@ class PilotRequestDetailUpdate(BaseModel):
 class AuthRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
+    full_name: str | None = Field(None, min_length=2, max_length=100)
+    company_name: str | None = Field(None, min_length=2, max_length=128)
+    merchant_category: str | None = Field(None, max_length=64)
+    expected_monthly_volume: str | None = Field(None, max_length=32)
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
@@ -136,3 +140,10 @@ class BehavioralIngestRequest(BaseModel):
     session_id: str = Field(..., min_length=16, max_length=128)
     events: List[ClickstreamEvent]
     client_metadata: Dict[str, Any] = Field(default_factory=dict)
+
+class ForensicReport(BaseModel):
+    risk_id: str
+    decision: str
+    score: float
+    report_markdown: str
+    generated_at: float

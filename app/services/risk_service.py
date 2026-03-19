@@ -8,7 +8,7 @@ import json
 import math
 from app.core.config import RISK_CONFIG, EMERGENCY_KILL_SWITCH
 from app.models import Order
-from app.core.redis import r
+from app.core.redis import r, rk
 from app.services.webhook_dispatcher import dispatch_alert
 from app.core.geoip import GEO_READER
 from app.db.database import AUDIT_STORE
@@ -43,7 +43,7 @@ def _merchant_scope(key_hash: str | None) -> str:
     return key_hash or "anonymous"
 
 def _merchant_state_key(key_hash: str | None, kind: str, suffix: str) -> str:
-    return f"{kind}:{_merchant_scope(key_hash)}:{suffix}"
+    return rk(f"{kind}:{_merchant_scope(key_hash)}:{suffix}")
 
 def _ip_prefix(ip: str) -> str:
     if ":" in ip:
@@ -57,7 +57,7 @@ async def _check_global_velocity(ip: str, risk_config: dict) -> bool:
     try:
         now = time.time()
         window_start = now - risk_config["velocity_window_secs"]
-        vel_key = f"global:velocity:ip:{ip}"
+        vel_key = rk(f"global:velocity:ip:{ip}")
         async with r.pipeline() as pipe:
             pipe.zadd(vel_key, {str(now): now})
             pipe.zremrangebyscore(vel_key, 0, window_start)
@@ -72,7 +72,7 @@ async def _check_global_velocity(ip: str, risk_config: dict) -> bool:
 async def _check_global_sybil(uid: str, address: str, risk_config: dict) -> bool:
     try:
         address_hash = hashlib.sha256(vector_pulse.address_fingerprint(address).encode()).hexdigest()
-        key = f"global:sybil:addr:{address_hash}"
+        key = rk(f"global:sybil:addr:{address_hash}")
         async with r.pipeline() as pipe:
             pipe.sadd(key, uid)
             pipe.scard(key)
@@ -89,7 +89,7 @@ async def _check_device_velocity(uid: str, device_hash: str | None, risk_config:
     try:
         now = time.time()
         window_start = now - risk_config["velocity_window_secs"]
-        vel_key = f"device:velocity:{device_hash}"
+        vel_key = rk(f"device:velocity:{device_hash}")
         async with r.pipeline() as pipe:
             pipe.zadd(vel_key, {str(now): now})
             pipe.zremrangebyscore(vel_key, 0, window_start)
@@ -126,7 +126,7 @@ async def _check_sybil(uid: str, address: str, risk_config: dict, merchant_key_h
             pipe.scard(key)
             pipe.expire(key, 86400 * 7)
             if merchant_email:
-                idx_key = f"addr_index:{merchant_email}"
+                idx_key = rk(f"addr_index:{merchant_email}")
                 pipe.sadd(idx_key, key)
                 pipe.expire(idx_key, 86400 * 90)
             res = await pipe.execute()
@@ -193,7 +193,7 @@ async def _check_ip_intelligence(ip: str) -> bool:
         # Reset failures on success
         GEOIP_CIRCUIT_STATE["failures"] = 0
         
-        cache_key = f"ipint:{ip}"
+        cache_key = rk(f"ipint:{ip}")
         cached = await r.get(cache_key)
         if cached is not None:
             return cached == "1" or is_risky_geo
@@ -230,7 +230,7 @@ async def _check_geo_velocity(uid: str, ip: str, device_hash: str | None, risk_c
         if lat is None or lon is None: return False
         
         now = time.time()
-        geo_key = f"geo:velocity:{device_hash}"
+        geo_key = rk(f"geo:velocity:{device_hash}")
         last_geo_raw = await r.get(geo_key)
         
         is_impossible_travel = False
@@ -270,7 +270,7 @@ def _check_bot_speed(checkout_time_secs: float | None) -> bool:
 async def _check_disposable_email(email: str | None) -> bool:
     if not email or "@" not in email: return False
     domain = email.rsplit("@", 1)[1].lower()
-    cache_key = f"disposable:{domain}"
+    cache_key = rk(f"disposable:{domain}")
     cached = await r.get(cache_key)
     if cached is not None: return cached == "1"
     disposable_domains = {"mailinator.com", "yopmail.com", "10minutemail.com", "temp-mail.org"} # etc
@@ -281,7 +281,7 @@ async def _check_disposable_email(email: str | None) -> bool:
 async def _check_high_risk_pin(pin: str | None) -> bool:
     if not pin: return False
     try:
-        return await r.sismember("high_risk_pins", pin.strip())
+        return await r.sismember(rk("high_risk_pins"), pin.strip())
     except Exception:
         return False
 
@@ -289,8 +289,8 @@ async def _check_identity_cache(email: str | None, phone: str | None) -> bool:
     """Checks if the email or phone is in the global high-risk identity set."""
     try:
         async with r.pipeline() as pipe:
-            if email: pipe.sismember("global:blacklist:email", email.lower().strip())
-            if phone: pipe.sismember("global:blacklist:phone", phone.strip())
+            if email: pipe.sismember(rk("global:blacklist:email"), email.lower().strip())
+            if phone: pipe.sismember(rk("global:blacklist:phone"), phone.strip())
             res = await pipe.execute()
         return any(res)
     except Exception as e:
@@ -302,9 +302,9 @@ async def _check_identity_cluster(uid: str, address: str, pin: str, ip: str, mer
         addr_fp = vector_pulse.address_fingerprint(address)
         subnet = _ip_prefix(ip)
         
-        addr_key = f"cluster:addr:{merchant_key_hash}:{hashlib.md5(addr_fp.encode()).hexdigest()}"
-        pin_key = f"cluster:pin:{merchant_key_hash}:{pin}"
-        subnet_key = f"cluster:subnet:{merchant_key_hash}:{subnet}"
+        addr_key = rk(f"cluster:addr:{merchant_key_hash}:{hashlib.md5(addr_fp.encode()).hexdigest()}")
+        pin_key = rk(f"cluster:pin:{merchant_key_hash}:{pin}")
+        subnet_key = rk(f"cluster:subnet:{merchant_key_hash}:{subnet}")
         
         async with r.pipeline() as pipe:
             pipe.sadd(addr_key, uid)

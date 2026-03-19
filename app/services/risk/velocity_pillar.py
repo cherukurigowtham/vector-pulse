@@ -3,6 +3,8 @@ import logging
 from typing import Optional
 from app.services.risk.base_pillar import BaseRiskPillar
 from app.models.dto.risk_context import RiskContext
+from app.core.redis import r, rk
+from app.services.risk.feature_store import feature_store
 
 class VelocityPillar(BaseRiskPillar):
     """
@@ -38,12 +40,18 @@ class VelocityPillar(BaseRiskPillar):
             context.flags.append("DEVICE_FINGERPRINT_VELOCITY")
             context.impacts["DEVICE_VELOCITY"] = float(risk_config.get("device_velocity_weight", 15.0))
 
+        # 4. Neural Velocity Acceleration (Phase 11)
+        acceleration = await feature_store.get_velocity_acceleration(context.merchant_email, context.order.uid)
+        if acceleration > 3.0: # Burst detected
+            context.flags.append("VELOCITY_ACCELERATION")
+            context.impacts["VELOCITY_ACCELERATION"] = float(risk_config.get("velocity_weight", 20.0)) * 0.5
+
     async def _check_local_velocity(self, context: RiskContext, risk_config: dict) -> bool:
         from app.core.redis import r
         now = time.time()
         window = risk_config["velocity_window_secs"]
         # Merchant-scoped key
-        key = f"velocity:{context.merchant_key_hash or 'anon'}:{context.order.uid}"
+        key = rk(f"velocity:{context.merchant_key_hash or 'anon'}:{context.order.uid}")
         async with r.pipeline() as pipe:
             pipe.zadd(key, {str(now): now})
             pipe.zremrangebyscore(key, 0, now - window)
@@ -56,7 +64,7 @@ class VelocityPillar(BaseRiskPillar):
         from app.core.redis import r
         now = time.time()
         window = risk_config["velocity_window_secs"]
-        key = f"global:velocity:ip:{context.order.ip}"
+        key = rk(f"global:velocity:ip:{context.order.ip}")
         async with r.pipeline() as pipe:
             pipe.zadd(key, {str(now): now})
             pipe.zremrangebyscore(key, 0, now - window)
@@ -70,7 +78,7 @@ class VelocityPillar(BaseRiskPillar):
         from app.core.redis import r
         now = time.time()
         window = risk_config["velocity_window_secs"]
-        key = f"device:velocity:{context.order.device_hash}"
+        key = rk(f"device:velocity:{context.order.device_hash}")
         async with r.pipeline() as pipe:
             pipe.zadd(key, {str(now): now})
             pipe.zremrangebyscore(key, 0, now - window)

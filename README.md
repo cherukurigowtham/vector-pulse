@@ -19,8 +19,8 @@ The system evaluates transactions using **Dynamic Thresholding**:
 
 ## 🛠️ Tech Stack
 * **Language**: Rust (Performance), Python (Logic)
-* **Database**: Redis
-* **Tooling**: Docker, Maturin, PyO3
+* **Database**: Redis, PostgreSQL (Audit), SQLite (Local Fallback)
+* **Tooling**: Docker, Maturin, PyO3, Pydantic, FastAPI
 
 ## 🏗️ Local Deployment
 ```bash
@@ -59,6 +59,10 @@ export RISK_VELOCITY_MAX_ORDERS=4
 export RISK_WEIGHT_SYBIL=30
 export RISK_SAVINGS_PER_BLOCK_INR=90
 export RISK_FAIL_CLOSED=true # Set to true to block orders if risk analysis fails/times out
+
+# Redis State Isolation (Phase 2)
+export REDIS_PREFIX=vp:prod
+# All Redis keys will be prefixed as: {REDIS_PREFIX}:v1:{key}
 ```
 
 ## 🗄️ Audit Storage
@@ -102,4 +106,23 @@ The `/health` endpoint now reports both Redis and audit-backend status, includin
 export VECTOR_PULSE_RESET_CONFIRM=DELETE_ALL_DATA
 export VECTOR_PULSE_ADMIN_KEY=your_admin_secret_key # Must match ADMIN_SECRET_KEY
 python3 scripts/admin_reset.py
+
+## 🔑 API Key Management
+The API now supports self-service key management via `/v1/security/auth/keys`:
+- `GET /v1/security/auth/keys`: List all keys for your team.
+- `POST /v1/security/auth/keys`: Generate a new API key.
+- `DELETE /v1/security/auth/keys/{key_hash}`: Revoke a specific key.
+
+All keys are stored securely using PBKDF2 hashing with unique salts.
+
+## 🧠 Advanced ML Intelligence (Phase 3)
+The engine now features a modular "Neural Orchestrator" that leverages:
+- **Thompson Sampling (RL)**: Dynamic weight adjustments based on actual feedback loops.
+- **Shield Mode**: Automated threshold tightening during high-volume attack waves.
+- **Behavioral Transformers**: Sequence probability analysis to detect non-human interaction patterns.
+- **Feature Store**: Real-time velocity acceleration and identity diversity metrics.
+
+To simulate an attack and verify the adaptive resilience:
+```bash
+PYTHONPATH=. python3 tests/verify_ml_intelligence.py
 ```

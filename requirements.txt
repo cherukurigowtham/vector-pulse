@@ -9,3 +9,5 @@ python-multipart
 aiohttp
 python-dotenv
 pyjwt
+aiosqlite
+psycopg2-binary

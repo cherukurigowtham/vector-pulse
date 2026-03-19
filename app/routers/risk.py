@@ -4,6 +4,12 @@ import hashlib
 import secrets
 import logging
 import asyncio
+from typing import (
+    Any,
+    cast,
+    Dict,
+    List,
+)
 from fastapi import (
     APIRouter,
     Depends,
@@ -12,7 +18,10 @@ from fastapi import (
     BackgroundTasks,
     Response,
 )
-from app.models import Order, OutcomeUpdate
+from app.models import Order, OutcomeUpdate, ForensicReport
+from app.services.risk.forensics_service import forensics_service
+from app.services.risk.graph_data_service import graph_data_service
+from app.models.dto.risk_context import RiskContext
 
 logger = logging.getLogger(__name__)
 from app.core.config import RISK_CONFIG, RISK_FAIL_CLOSED, RATE_LIMITS
@@ -169,22 +178,18 @@ async def explain_decision(
                 raise HTTPException(status_code=404, detail="Risk ID not found")
             payload = json.loads(row["metrics"])
             context = {
-                "score": row["risk_score"],
+                "score": float(row["risk_score"]),
                 "flags": row["reasons"].split(",") if row["reasons"] else [],
-                "metrics": payload.get("metrics", payload)
-                if isinstance(payload, dict)
-                else payload,
-                "config": payload.get("config", dict(RISK_CONFIG))
-                if isinstance(payload, dict)
-                else dict(RISK_CONFIG),
-                "timestamp": row["timestamp"],
+                "metrics": payload if isinstance(payload, dict) else {},
+                "config": dict(RISK_CONFIG),
+                "timestamp": float(row["timestamp"]),
             }
         else:
-            context = json.loads(raw_data)
+            context = cast(Dict[str, Any], json.loads(raw_data))
 
         narrative = []
-        m = context["metrics"]
-        config = context.get("config", dict(RISK_CONFIG))
+        m = cast(Dict[str, Any], context.get("metrics", {}))
+        config = cast(Dict[str, Any], context.get("config", dict(RISK_CONFIG)))
         if m.get("velocity"):
             narrative.append(
                 f"High-frequency transaction wave detected ({config['velocity_max_orders']}+ orders in {config['velocity_window_secs']}s)."
@@ -201,9 +206,9 @@ async def explain_decision(
             narrative.append(
                 "Sybil identity pattern detected: multiple unique identifiers linked to a single delivery location."
             )
-        if m.get("trust", 50.0) < config["trust_floor"]:
+        if m.get("trust", 50.0) < float(config.get("trust_floor", 30.0)):
             narrative.append(
-                f"Customer reputation score ({m['trust']:.0f}%) is below the merchant's delivery safety floor."
+                f"Customer reputation score ({float(m.get('trust', 0)):.0f}%) is below the merchant's delivery safety floor."
             )
 
         return {
@@ -216,6 +221,7 @@ async def explain_decision(
             ),
             "findings": narrative,
             "impact_analysis": context.get("xai_impacts", {}),  # Professional XAI
+            "forensic_report_link": f"/v1/forensics/{risk_id}",
             "raw_metrics": m,
             "timestamp": context["timestamp"],
         }
@@ -224,6 +230,75 @@ async def explain_decision(
             raise
         logging.error(f"Explain API Error: {e}")
         raise HTTPException(status_code=500, detail="Internal analysis service error")
+
+
+@router.get(
+    "/v1/forensics/{risk_id}",
+    summary="Get a detailed clinical forensic report for a fraud decision",
+    response_model=ForensicReport,
+)
+async def get_forensic_report(
+    risk_id: str, key_data: dict = Depends(require_api_key_or_admin)
+):
+    try:
+        raw_data = await r.get(f"explain:{risk_id}")
+        if not raw_data:
+            row = await AUDIT_STORE.fetch_risk_audit(risk_id)
+            if not row:
+                raise HTTPException(status_code=404, detail="Risk ID not found")
+            payload = json.loads(row["metrics"])
+            context_dict = {
+                "score": row["risk_score"],
+                "flags": row["reasons"].split(",") if row["reasons"] else [],
+                "impacts": payload.get("impacts", {}),
+                "timestamp": row["timestamp"],
+            }
+        else:
+            context_dict = json.loads(raw_data)
+
+        # Convert dict to RiskContext for the service
+        # Note: We might need to mock redundant fields if not in cache
+        from app.models.schemas import Order as OrderSchema
+        mock_order = OrderSchema(uid=context_dict.get("uid", "unknown"), amt=0, addr="N/A", pin="000000")
+        context = RiskContext(order=mock_order, merchant_email=key_data.get("email", "unknown"))
+        context.flags = context_dict.get("flags", [])
+        context.impacts = context_dict.get("impacts", {})
+
+        report_md = forensics_service.generate_report(
+            risk_id, context, context_dict.get("decision", "UNKNOWN"), context_dict.get("score", 0.0)
+        )
+
+        return ForensicReport(
+            risk_id=risk_id,
+            decision=context_dict.get("decision", "UNKNOWN"),
+            score=context_dict.get("score", 0.0),
+            report_markdown=report_md,
+            generated_at=time.time(),
+        )
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
+        logging.error(f"Forensics API Error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate forensic report")
+
+
+@router.get(
+    "/v1/graph/cluster/{risk_id}",
+    summary="Get localized graph connectivity for the Visual Explorer",
+)
+async def get_graph_cluster(
+    risk_id: str, key_data: dict = Depends(require_api_key_or_admin)
+):
+    try:
+        data = await graph_data_service.get_cluster_data(
+            risk_id, key_data.get("team_id", "unknown")
+        )
+        return data
+    except Exception as e:
+        logging.error(f"Graph Cluster API Error: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to synthesize graph cluster data"
+        )
 
 
 @router.post("/v1/risk-check", summary="Evaluate an order for fraud risk")
@@ -278,14 +353,18 @@ async def check_order(
             "trust_score": 50.0,
         }
 
+    analysis = cast(Dict[str, Any], analysis)
     # Semantic ML Cluster Bonus
     try:
         cluster_bonus = await get_cluster_risk_bonus(order)
     except Exception:
         cluster_bonus = 0.0
     if cluster_bonus > 0:
-        analysis["score"] += cluster_bonus
-        analysis["flags"].append("FRAUD_RING_CLUSTER_DETECTED")
+        analysis["score"] = float(analysis["score"]) + cluster_bonus
+        flags = analysis.get("flags", [])
+        if isinstance(flags, list):
+            flags.append("FRAUD_RING_CLUSTER_DETECTED")
+            analysis["flags"] = flags
 
     risk_score = analysis["score"]
     is_blocked = (risk_score > risk_config["decision_threshold"]) and not order.shadow
@@ -313,8 +392,8 @@ async def check_order(
         "risk_id": risk_id,
         "decision": action,
         "shadow_mode": order.shadow,
-        "risk_score": round(float(risk_score), 1),
-        "risk_factors": analysis["flags"],
+        "risk_score": float(f"{float(risk_score):.1f}"),
+        "risk_factors": analysis.get("flags", []),
         "latency_ms": f"{latency:.2f}ms",
     }
 

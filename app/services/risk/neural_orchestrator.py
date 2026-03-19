@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from app.services.risk.base_pillar import BaseRiskPillar
 from app.models.dto.risk_context import RiskContext
 from app.services.governance_service import governance_service
+from app.services.risk.weighting_engine import weighting_engine
 from app.core.infrastructure.base_service import BaseService
 
 class NeuralOrchestrator(BaseService):
@@ -20,27 +21,59 @@ class NeuralOrchestrator(BaseService):
         """Runs all pillars in parallel and aggregates results."""
         self.log_event("analysis_started", uid=context.order.uid)
         
-        # 1. Fetch Dynamic Governance Weights
+        # 1. Fetch Dynamic Governance Weights (Classic + Neural)
         gov_weights = await governance_service.get_adjusted_weights(context.merchant_email)
+        neural_weights = await weighting_engine.get_weights(context.merchant_email)
         
-        # 2. Parallel Pillar Execution
-        tasks = [p.evaluate(context, risk_config) for p in self.pillars]
+        # Merge weights: Neural weights take precedence or multiply.
+        # For now, we multiply to allow "classic" bounds to still apply.
+        effective_weights = {**gov_weights}
+        for k, v in neural_weights.items():
+             if k in effective_weights: effective_weights[k] *= v
+             else: effective_weights[k] = v
+        
+        # 2. Parallel Pillar Execution with merged config (weights + parameters)
+        effective_config = {**risk_config, **effective_weights}
+        tasks = [p.evaluate(context, effective_config) for p in self.pillars]
         await asyncio.gather(*tasks)
         
         # 3. Cognitive Aggregation (Strategy Pattern)
         score = self._aggregate_score(context, risk_config)
         
-        decision = "BLOCK" if score >= risk_config.get("decision_threshold", 50.0) else "ALLOW"
+        # 4. Adaptive Resilience (Shield Mode) - Phase 12
+        from app.services.risk.shield_monitor import shield_monitor
+        from app.services.risk.zk_service import zk_service
+        base_threshold = float(risk_config.get("decision_threshold", 50.0))
+        
+        if await shield_monitor.is_shield_active():
+            base_threshold *= 0.8 # Tighten threshold by 20%
+            context.flags.append("SHIELD_MODE_ACTIVE")
+        
+        # 5. Zero-Knowledge Consortium Pulse - Phase 16
+        zk_bonus = await zk_service.verify_consortium_risk(
+            context.order.email or context.order.phone or "unknown",
+            context.merchant_email,
+            "consortium_salt_v1"
+        )
+        if zk_bonus:
+            score += zk_bonus
+            context.flags.append("ZK_CONSORTIUM_SIGNAL_DETECTED")
+            context.impacts["ZK_CONSORTIUM"] = zk_bonus
+
+        decision = "BLOCK" if score >= base_threshold else "ALLOW"
+        
+        # Record for global monitor
+        await shield_monitor.record_decision(decision == "BLOCK")
         
         result = {
-            "score": round(score, 1),
+            "score": round(float(score), 1),
             "decision": decision,
             "flags": context.flags,
             "impacts": context.impacts,
             "trust_score": context.trust_score
         }
         
-        self.log_event("analysis_completed", score=score, decision=decision)
+        self.log_event("analysis_completed", score=score, decision=decision, shield_active=(decision == "BLOCK" and "SHIELD_MODE_ACTIVE" in context.flags))
         return result
 
     def _aggregate_score(self, context: RiskContext, risk_config: dict) -> float:

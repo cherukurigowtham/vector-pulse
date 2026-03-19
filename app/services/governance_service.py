@@ -1,7 +1,8 @@
 import logging
 from typing import Dict, Any
-from app.core.redis import r
+from app.core.redis import r, rk
 from app.core.config import RISK_CONFIG
+from app.services.risk.weighting_engine import weighting_engine
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ class GovernanceService:
         Retrieves the dynamically tuned weights for a specific merchant.
         Fallback to global RISK_CONFIG if no tuning data exists.
         """
-        tuned_key = f"governance:weights:{merchant_email}"
+        tuned_key = rk(f"governance:weights:{merchant_email}")
         tuned_data = await r.hgetall(tuned_key)
         
         weights = {
@@ -38,7 +39,7 @@ class GovernanceService:
         # feedback_type: "FALSE_POSITIVE", "TRUE_POSITIVE"
         if feedback_type == "FALSE_POSITIVE":
             # Identify which signals fired and penalize their weights
-            tuned_key = f"governance:weights:{merchant_email}"
+            tuned_key = rk(f"governance:weights:{merchant_email}")
             
             # Ensure we start from current tuned weight or global default
             current_bot_weight = await r.hget(tuned_key, "bot_speed_weight")
@@ -53,6 +54,9 @@ class GovernanceService:
                 pipe.hset(tuned_key, "bot_speed_weight", float(current_bot_weight) - 1.5)
                 pipe.hset(tuned_key, "velocity_weight", float(current_vel_weight) - 1.0)
                 await pipe.execute()
+            
+            # RL Update: Penalize all active pillars that fired
+            await weighting_engine.update_stats(merchant_email, {}, feedback_type)
                 
             logger.info(f"Governance: Penalized weights for {merchant_email} due to FALSE_POSITIVE on {risk_id}")
 

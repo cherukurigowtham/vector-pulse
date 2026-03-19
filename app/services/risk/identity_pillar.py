@@ -3,6 +3,8 @@ import logging
 from typing import Tuple, Optional, Any
 from app.services.risk.base_pillar import BaseRiskPillar
 from app.models.dto.risk_context import RiskContext
+from app.core.redis import r, rk
+from app.services.risk.feature_store import feature_store
 
 class IdentityPillar(BaseRiskPillar):
     """
@@ -39,6 +41,17 @@ class IdentityPillar(BaseRiskPillar):
             context.flags.append("IDENTITY_CLUSTER_DETECTED")
             context.impacts["IDENTITY_CLUSTER"] = cluster_score
 
+        # 4. Identity Diversity (Phase 11)
+        # Tracking unique cards/identities tied to a single anchor (e.g., email)
+        diversity = await feature_store.get_identity_diversity(context.merchant_email, context.order.email)
+        if diversity > 3.0:
+            context.flags.append(f"HIGH_IDENTITY_DIVERSITY({int(diversity)})")
+            context.impacts["IDENTITY_DIVERSITY"] = float(risk_config.get("identity_weight", 20.0)) * 0.4
+        
+        # Log event for diversity tracking
+        if context.order.email and context.order.card_bin:
+            await feature_store.record_event(context.merchant_email, context.order.email, context.order.card_bin)
+
         if context.consortium_hits > 0:
             context.flags.append(f"FRAUD_RING_LINK({context.consortium_hits})")
             context.impacts["FRAUD_RING"] = min(5, context.consortium_hits) * float(risk_config.get("global_network_weight", 15.0))
@@ -46,8 +59,8 @@ class IdentityPillar(BaseRiskPillar):
     async def _check_blacklist(self, context: RiskContext) -> bool:
         from app.core.redis import r
         async with r.pipeline() as pipe:
-            if context.order.email: pipe.sismember("global:blacklist:email", context.order.email.lower().strip())
-            if context.order.phone: pipe.sismember("global:blacklist:phone", context.order.phone.strip())
+            if context.order.email: pipe.sismember(rk("global:blacklist:email"), context.order.email.lower().strip())
+            if context.order.phone: pipe.sismember(rk("global:blacklist:phone"), context.order.phone.strip())
             res = await pipe.execute()
         return any(res)
 
@@ -58,8 +71,8 @@ class IdentityPillar(BaseRiskPillar):
             addr_fp = vector_pulse.address_fingerprint(context.order.addr)
             m_hash = context.merchant_key_hash or "anon"
             
-            addr_key = f"cluster:addr:{m_hash}:{hashlib.md5(addr_fp.encode()).hexdigest()}"
-            pin_key = f"cluster:pin:{m_hash}:{context.order.pin}"
+            addr_key = rk(f"cluster:addr:{m_hash}:{hashlib.md5(addr_fp.encode()).hexdigest()}")
+            pin_key = rk(f"cluster:pin:{m_hash}:{context.order.pin}")
             
             async with r.pipeline() as pipe:
                 pipe.sadd(addr_key, context.order.uid); pipe.scard(addr_key); pipe.expire(addr_key, 86400 * 30)

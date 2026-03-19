@@ -2,7 +2,7 @@ import jwt
 import datetime
 from fastapi import Request, Response, HTTPException, Security, Depends, Header
 from fastapi.security import APIKeyHeader
-from app.core.redis import r
+from app.core.redis import r, rk
 from app.core.config import (
     ADMIN_KEY, SESSION_COOKIE_SECURE, JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRATION_HOURS
 )
@@ -49,15 +49,15 @@ async def _create_session(email: str, response: Response, request: Request) -> N
     token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
     async with r.pipeline() as pipe:
-        pipe.hset(f"session:{session_id}", mapping={
+        pipe.hset(rk(f"session:{session_id}"), mapping={
             "email": email,
             "role": role,
             "team_id": team_id,
             "jwt": token
         })
-        pipe.expire(f"session:{session_id}", 86400 * 30)
-        pipe.setex(f"csrf:{session_id}", 86400 * 30, csrf_token)
-        pipe.sadd(f"session_index:{email}", session_id)
+        pipe.expire(rk(f"session:{session_id}"), 86400 * 30)
+        pipe.setex(rk(f"csrf:{session_id}"), 86400 * 30, csrf_token)
+        pipe.sadd(rk(f"session_index:{email}"), session_id)
         await pipe.execute()
 
     response.set_cookie(
@@ -100,7 +100,7 @@ async def require_csrf(request: Request, x_csrf_token: str = Header(None), x_adm
     if request.method in ["GET", "HEAD", "OPTIONS"]:
         return
 
-    stored_csrf = await r.get(f"csrf:{session_id}")
+    stored_csrf = await r.get(rk(f"csrf:{session_id}"))
     provided_csrf = x_csrf_token
     
     if not stored_csrf or provided_csrf != stored_csrf:
@@ -127,7 +127,7 @@ def require_role(allowed_roles: list[str]):
         if not session_id:
             raise HTTPException(status_code=401, detail="Not authenticated")
         
-        session_data = await r.hgetall(f"session:{session_id}")
+        session_data = await r.hgetall(rk(f"session:{session_id}"))
         if not session_data:
             raise HTTPException(status_code=401, detail="Session expired")
         
@@ -151,7 +151,7 @@ async def require_admin(request: Request, x_admin_header: str = Security(admin_k
     # Fallback to session check
     session_id = request.cookies.get("vp_session")
     if session_id:
-        session_data = await r.hgetall(f"session:{session_id}")
+        session_data = await r.hgetall(rk(f"session:{session_id}"))
         if session_data and (session_data.get("role") == "ADMIN" or _is_admin_email(session_data.get("email"))):
             return session_data
             
@@ -180,7 +180,7 @@ async def require_api_key(api_key: str = Security(api_key_header)):
     # then if the record has a `salt` and a `salted_hash`, we verify it.
     
     legacy_hash = hashlib.sha256(api_key.encode()).hexdigest()
-    key_data = await r.hgetall(f"apikey:{legacy_hash}")
+    key_data = await r.hgetall(rk(f"apikey:{legacy_hash}"))
     
     if not key_data:
         raise HTTPException(status_code=403, detail="Invalid API key")

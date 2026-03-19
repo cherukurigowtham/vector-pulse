@@ -24,6 +24,8 @@ REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 REDIS_SSL = os.getenv("REDIS_SSL", "false").lower() == "true"
+REDIS_PREFIX = os.getenv("REDIS_PREFIX", "vp:dev").strip()
+REDIS_KEY_VERSION = "v1"
 
 CORS_ALLOW_ORIGINS = [
     origin.strip() 

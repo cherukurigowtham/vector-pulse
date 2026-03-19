@@ -18,5 +18,6 @@ from app.models.schemas import (
     AutomationRule,
     AutomationRulesUpdate,
     ClickstreamEvent,
-    BehavioralIngestRequest
+    BehavioralIngestRequest,
+    ForensicReport
 )
