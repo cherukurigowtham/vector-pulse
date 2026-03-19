@@ -1,6 +1,7 @@
 fastapi
 uvicorn
-pydantic
+pydantic[email]
+email-validator
 redis[asyncio]
 asyncpg
 httpx
@@ -11,3 +12,5 @@ python-dotenv
 pyjwt
 aiosqlite
 psycopg2-binary
+passlib[bcrypt]
+python-jose[cryptography]
