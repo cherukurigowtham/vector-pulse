@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from typing import List, Dict, Any
 from app.services.risk.base_pillar import BaseRiskPillar
 from app.models.dto.risk_context import RiskContext

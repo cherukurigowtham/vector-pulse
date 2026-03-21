@@ -1,8 +1,8 @@
 import logging
 import json
 import time
-from typing import List, Dict, Any
-from app.core.redis import r, rk
+from typing import Dict, Any
+from app.core.redis import r
 
 logger = logging.getLogger(__name__)
 

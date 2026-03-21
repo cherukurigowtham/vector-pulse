@@ -2,11 +2,9 @@ import hashlib
 import json
 import logging
 from typing import List
-import time
 from app.core.redis import r
 from app.models import Order
 from app.core.helpers import _log_event
-from app.services.webhook_dispatcher import dispatch_alert
 
 class BehavioralEncoder:
     """

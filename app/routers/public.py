@@ -173,7 +173,7 @@ async def request_pilot(req: PilotRequest, request: Request):
     _log_event("pilot_request_created", email=normalized_email, company=req.company)
     return {"status": "success", "message": "Pilot request received. Our team will contact you soon."}
 
-@router.post("/v1/register", summary="Register for an API key")
+@router.post("/register", summary="Register for an API key")
 async def register(req: RegisterRequest, request: Request):
     client_ip = getattr(request.client, "host", "unknown")
     if await _sliding_window_rate_limit(f"ratelimit:register:{client_ip}", 2, 86400):
@@ -216,7 +216,7 @@ async def register(req: RegisterRequest, request: Request):
         "note": "Store this key safely. It will not be shown again.",
     }
 
-@router.post("/v1/public/request-free-key", summary="Issue a free tier API key instantly")
+@router.post("/public/request-free-key", summary="Issue a free tier API key instantly")
 async def request_free_key(req: PublicRegisterRequest, request: Request):
     client_ip = getattr(request.client, "host", "unknown")
     

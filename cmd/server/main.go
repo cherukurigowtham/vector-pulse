@@ -1,78 +1,104 @@
 package main
 
 import (
-	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
-
-	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/joho/godotenv"
-	"github.com/redis/go-redis/v9"
+	"strings"
+	"vector-pulse/internal/config"
+	"vector-pulse/internal/core"
+	"vector-pulse/internal/db"
 	"vector-pulse/internal/handler"
+	"vector-pulse/internal/middleware"
 	"vector-pulse/internal/repository"
 	"vector-pulse/internal/service"
+
+	"github.com/gorilla/mux"
 )
 
 func main() {
-	godotenv.Load()
+	// Initialize Configuration
+	config.LoadConfig()
 
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		log.Fatal("DATABASE_URL must be set")
-	}
-	dbPool, err := pgxpool.New(context.Background(), dbURL)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer dbPool.Close()
+	// Initialize Infrastructure
+	core.InitRedis()
+	db.InitDB()
+	defer db.CloseDB()
 
-	redisHost := os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		redisHost = "localhost"
-	}
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: redisHost + ":6379",
-	})
-	
-	pgStore := repository.NewPostgresStore(dbPool)
-	redisStore := repository.NewRedisStore(redisClient)
-	authService := service.NewAuthService(pgStore, redisStore)
-	authHandler := handler.NewAuthHandler(authService)
+	// Initialize Services
+	repo := repository.NewPostgresRepository(db.DB)
+	usageSvc := service.NewUsageService()
+	riskSvc := service.NewRiskService(usageSvc)
+	authSvc := service.NewAuthService(repo)
+	merchantSvc := service.NewMerchantService(repo, usageSvc)
 
+	// Initialize Handlers
+	riskHandler := handler.NewRiskHandler(riskSvc, repo)
+	authHandler := handler.NewAuthHandler(authSvc)
+	merchantHandler := handler.NewMerchantHandler(merchantSvc)
+
+	// Setup Router
 	r := mux.NewRouter()
 
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			origin := r.Header.Get("Origin")
-			if origin != "" {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-				w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-			}
+	// Health Check
+	r.Use(corsMiddleware)
+	r.HandleFunc("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"status": "healthy", "engine": "golang"}`)
+	}).Methods("GET")
 
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
+	// API V1 Routes
+	v1 := r.PathPrefix("/api/v1").Subrouter()
 
-			next.ServeHTTP(w, r)
-		})
-	})
+	// Auth
+	v1.HandleFunc("/security/auth/signup", authHandler.Signup).Methods("POST")
+	v1.HandleFunc("/security/auth/login", authHandler.Login).Methods("POST")
+	v1.Handle("/security/auth/me", middleware.AuthMiddleware(http.HandlerFunc(authHandler.Me))).Methods("GET")
+	v1.Handle("/security/auth/logout", middleware.AuthMiddleware(http.HandlerFunc(authHandler.Logout))).Methods("POST")
 
-	api := r.PathPrefix("/api/v1/security/auth").Subrouter()
-	api.HandleFunc("/signup", authHandler.Signup).Methods("POST", "OPTIONS")
-	api.HandleFunc("/login", authHandler.Login).Methods("POST", "OPTIONS")
-	api.HandleFunc("/logout", authHandler.Logout).Methods("POST", "OPTIONS")
-	api.HandleFunc("/me", authHandler.Me).Methods("GET", "OPTIONS")
+	// Merchant
+	v1.Handle("/merchant/reporting/summary", middleware.AuthMiddleware(http.HandlerFunc(merchantHandler.Summary))).Methods("GET")
+	v1.Handle("/merchant/payments/history", middleware.AuthMiddleware(http.HandlerFunc(merchantHandler.PaymentHistory))).Methods("GET")
+	v1.Handle("/merchant/payments/orders", middleware.AuthMiddleware(http.HandlerFunc(merchantHandler.CreateOrder))).Methods("POST")
+	v1.Handle("/merchant/payments/verify", middleware.AuthMiddleware(http.HandlerFunc(merchantHandler.VerifyOrder))).Methods("POST")
 
+	// Risk scans (JWT or x-api-key)
+	v1.Handle("/risk/scan", middleware.AuthMiddleware(http.HandlerFunc(riskHandler.ScanOrder))).Methods("POST")
+
+	// Start Server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8000"
 	}
 
-	log.Printf("Starting Golang API on port %s", port)
-	log.Fatal(http.ListenAndServe(":"+port, r))
+	log.Printf("Vantix Engine starting on port %s...", port)
+	if err := http.ListenAndServe(":"+port, r); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	allowOrigins := make(map[string]struct{}, len(config.GlobalConfig.CORSAllowOrigins))
+	for _, origin := range config.GlobalConfig.CORSAllowOrigins {
+		trimmed := strings.TrimSpace(origin)
+		if trimmed != "" {
+			allowOrigins[trimmed] = struct{}{}
+		}
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if _, ok := allowOrigins[origin]; ok {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+		}
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Dict
 from app.core.redis import r, rk
 from app.core.config import RISK_CONFIG
 from app.services.risk.weighting_engine import weighting_engine

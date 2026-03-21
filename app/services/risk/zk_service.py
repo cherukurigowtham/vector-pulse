@@ -34,8 +34,6 @@ class ZKService:
         """
         commit = self.generate_commitment(pii, merchant_id, salt)
         
-        commit = self.generate_commitment(pii, merchant_id, salt)
-        
         # Simulation: In the CEO vision, this would hit a decentralized ledger.
         # For now, we mock the 'High Risk Commitments' set.
         # "fraudster@evil.com" with "consortium_salt_v1" and "m_1" hashes to a commitment.

@@ -1,11 +1,9 @@
 import asyncio
 import logging
-import time
 from app.models import Order
 from app.models.dto.risk_context import RiskContext
 from app.services.risk.factory import get_risk_engine
 from app.services.risk.shield_monitor import shield_monitor
-from app.services.governance_service import governance_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("Simulation")

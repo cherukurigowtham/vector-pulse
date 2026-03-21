@@ -3,7 +3,7 @@ import os
 import json
 import base64
 from cryptography.fernet import Fernet
-from typing import Dict, Any, Optional
+from typing import Optional
 from app.core.redis import r
 
 logger = logging.getLogger(__name__)

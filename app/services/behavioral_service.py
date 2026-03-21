@@ -3,7 +3,6 @@ import logging
 import math
 from typing import List, Dict, Any
 from app.core.redis import r, rk
-from app.services.risk.edge_service import edge_evaluator
 
 logger = logging.getLogger(__name__)
 

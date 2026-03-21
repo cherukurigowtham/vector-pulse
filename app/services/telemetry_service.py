@@ -1,6 +1,6 @@
 import time
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from app.core.redis import r
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,5 @@
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from app.core.infrastructure.base_service import BaseService
 from app.repositories.merchant_repository import MerchantRepository
 

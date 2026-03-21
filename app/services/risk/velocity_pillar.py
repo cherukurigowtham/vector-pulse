@@ -1,6 +1,5 @@
 import time
 import logging
-from typing import Optional
 from app.services.risk.base_pillar import BaseRiskPillar
 from app.models.dto.risk_context import RiskContext
 from app.core.redis import r, rk
@@ -47,7 +46,6 @@ class VelocityPillar(BaseRiskPillar):
             context.impacts["VELOCITY_ACCELERATION"] = float(risk_config.get("velocity_weight", 20.0)) * 0.5
 
     async def _check_local_velocity(self, context: RiskContext, risk_config: dict) -> bool:
-        from app.core.redis import r
         now = time.time()
         window = risk_config["velocity_window_secs"]
         # Merchant-scoped key
@@ -61,7 +59,6 @@ class VelocityPillar(BaseRiskPillar):
         return res[2] > risk_config["velocity_max_orders"]
 
     async def _check_global_velocity(self, context: RiskContext, risk_config: dict) -> bool:
-        from app.core.redis import r
         now = time.time()
         window = risk_config["velocity_window_secs"]
         key = rk(f"global:velocity:ip:{context.order.ip}")
@@ -75,7 +72,6 @@ class VelocityPillar(BaseRiskPillar):
 
     async def _check_device_velocity(self, context: RiskContext, risk_config: dict) -> bool:
         if not context.order.device_hash: return False
-        from app.core.redis import r
         now = time.time()
         window = risk_config["velocity_window_secs"]
         key = rk(f"device:velocity:{context.order.device_hash}")

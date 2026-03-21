@@ -1,8 +1,5 @@
-import json
 import logging
 import time
-import os
-from typing import Any, Optional
 try:
     import asyncpg
 except ImportError:

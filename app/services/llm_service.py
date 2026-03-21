@@ -1,7 +1,7 @@
 import logging
 import json
 import aiohttp
-from typing import Dict, Any, List
+from typing import Dict, Any
 from app.core.config import GEMINI_API_KEY
 
 logger = logging.getLogger(__name__)

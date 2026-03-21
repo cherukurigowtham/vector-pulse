@@ -2,121 +2,126 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
-	"vector-pulse/internal/core"
-	"vector-pulse/internal/domain"
+	"fmt"
+	"strings"
+	"time"
+	"vector-pulse/internal/config"
 	"vector-pulse/internal/repository"
+
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService struct {
-	pgStore    repository.Store
-	redisStore repository.Cache
+	repo repository.ReadWriter
 }
 
-func NewAuthService(pgStore repository.Store, redisStore repository.Cache) *AuthService {
-	return &AuthService{
-		pgStore:    pgStore,
-		redisStore: redisStore,
-	}
+type AuthResult struct {
+	Message string
+	Email   string
+	TeamID  string
+	Role    string
+	Token   string
 }
 
-func (s *AuthService) Signup(ctx context.Context, req domain.AuthRequest) (string, string, error) {
-	exists, err := s.redisStore.HExists(ctx, "user:"+req.Email, "pwd_hash")
-	if err != nil {
-		return "", "", err
-	}
-	if exists {
-		return "", "", errors.New("email already registered")
-	}
-
-	salt, err := core.GenerateSalt()
-	if err != nil {
-		return "", "", err
-	}
-	pwdHash := core.HashPassword(req.Password, salt)
-	
-	rawKey, err := core.GenerateSecureKey()
-	if err != nil {
-		return "", "", err
-	}
-	legacyHash := core.HashKey(rawKey)
-	teamID, _ := core.GenerateSalt()
-	teamID = teamID[:8]
-
-	err = s.pgStore.CreateTeam(ctx, teamID, req.Email+"'s Team", req.Email)
-	if err != nil {
-		return "", "", err
-	}
-
-	err = s.redisStore.HSet(ctx, "user:"+req.Email, map[string]interface{}{
-		"pwd_hash": pwdHash,
-		"salt":     salt,
-		"key_hash": legacyHash,
-		"plan":     "free",
-		"role":     "ADMIN",
-		"team_id":  teamID,
-	})
-	if err != nil {
-		return "", "", err
-	}
-	
-	s.redisStore.Set(ctx, "emailkey:"+req.Email, legacyHash, 0)
-
-	token, err := core.CreateJWTToken(req.Email, "ADMIN", teamID)
-	return token, rawKey, err
+func NewAuthService(repo repository.ReadWriter) *AuthService {
+	return &AuthService{repo: repo}
 }
 
-func (s *AuthService) Login(ctx context.Context, req domain.AuthRequest) (string, error) {
-	userData, err := s.redisStore.HGetAll(ctx, "user:"+req.Email)
+func (s *AuthService) Signup(ctx context.Context, email, password string) (AuthResult, error) {
+	email = normalizeEmail(email)
+	if email == "" || len(password) < 6 {
+		return AuthResult{}, fmt.Errorf("email and password(min 6) are required")
+	}
+
+	if _, err := s.repo.GetUserByEmail(ctx, email); err == nil {
+		return AuthResult{}, fmt.Errorf("email already registered")
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return AuthResult{}, err
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return "", err
-	}
-	if len(userData) == 0 {
-		return "", errors.New("invalid credentials")
+		return AuthResult{}, err
 	}
 
-	salt, ok := userData["salt"]
-	if !ok {
-		return "", errors.New("invalid credentials")
+	teamID := buildTeamID(email)
+	if err := s.repo.CreateUser(ctx, repository.User{
+		Email:        email,
+		PasswordHash: string(hash),
+		TeamID:       teamID,
+		Role:         "ADMIN",
+	}); err != nil {
+		return AuthResult{}, err
 	}
 
-	var expectedHash string
-	if hash, exists := userData["pwd_hash"]; exists {
-		expectedHash = hash
-	} else if hash, exists := userData["password_hash"]; exists {
-		expectedHash = hash
-	}
-
-	providedHash := core.HashPassword(req.Password, salt)
-	if providedHash != expectedHash {
-		return "", errors.New("invalid credentials")
-	}
-
-	role := userData["role"]
-	if role == "" {
-		role = "VIEWER"
-	}
-	teamID := userData["team_id"]
-	if teamID == "" {
-		teamID = "personal"
-	}
-
-	token, err := core.CreateJWTToken(req.Email, role, teamID)
-	return token, err
-}
-
-func (s *AuthService) GetUser(ctx context.Context, email string) (*domain.User, error) {
-	userData, err := s.redisStore.HGetAll(ctx, "user:"+email)
+	token, err := issueToken(email, teamID, "ADMIN")
 	if err != nil {
-		return nil, err
-	}
-	if len(userData) == 0 {
-		return nil, errors.New("user not found")
+		return AuthResult{}, err
 	}
 
-	return &domain.User{
-		Email:  email,
-		Role:   userData["role"],
-		TeamID: userData["team_id"],
+	return AuthResult{
+		Message: "Account created successfully",
+		Email:   email,
+		TeamID:  teamID,
+		Role:    "ADMIN",
+		Token:   token,
 	}, nil
+}
+
+func (s *AuthService) Login(ctx context.Context, email, password string) (AuthResult, error) {
+	email = normalizeEmail(email)
+	if email == "" || password == "" {
+		return AuthResult{}, fmt.Errorf("email and password are required")
+	}
+
+	user, err := s.repo.GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return AuthResult{}, fmt.Errorf("invalid credentials")
+		}
+		return AuthResult{}, err
+	}
+
+	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)) != nil {
+		return AuthResult{}, fmt.Errorf("invalid credentials")
+	}
+
+	token, err := issueToken(user.Email, user.TeamID, user.Role)
+	if err != nil {
+		return AuthResult{}, err
+	}
+
+	return AuthResult{
+		Message: "Logged in successfully",
+		Email:   user.Email,
+		TeamID:  user.TeamID,
+		Role:    user.Role,
+		Token:   token,
+	}, nil
+}
+
+func normalizeEmail(email string) string {
+	return strings.TrimSpace(strings.ToLower(email))
+}
+
+func buildTeamID(email string) string {
+	name := strings.Split(email, "@")[0]
+	name = strings.ReplaceAll(name, ".", "_")
+	return "team_" + name
+}
+
+func issueToken(email, teamID, role string) (string, error) {
+	claims := jwt.MapClaims{
+		"email":   email,
+		"team_id": teamID,
+		"role":    role,
+		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
+		"iat":     time.Now().Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(config.GlobalConfig.JWTSecret))
 }

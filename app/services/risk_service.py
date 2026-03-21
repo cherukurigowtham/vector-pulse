@@ -269,7 +269,9 @@ def _check_bot_speed(checkout_time_secs: float | None) -> bool:
 
 async def _check_disposable_email(email: str | None) -> bool:
     if not email or "@" not in email: return False
-    domain = email.rsplit("@", 1)[1].lower()
+    parts = email.rsplit("@", 1)
+    if len(parts) < 2: return False
+    domain = parts[1].lower()
     cache_key = rk(f"disposable:{domain}")
     cached = await r.get(cache_key)
     if cached is not None: return cached == "1"
@@ -452,6 +454,7 @@ def _check_behavioral_dna(order: Order, risk_config: dict):
     return flags, score
 
 async def run_risk_analysis(order: Order, merchant_key_hash: str | None, merchant_email: str) -> dict:
+    start_time = time.time()
     # Phase 29: Emergency Kill-switch (High Availability Governance)
     if EMERGENCY_KILL_SWITCH:
         logging.critical("GLOBAL EMERGENCY KILL-SWITCH ENGAGED: Bypassing Risk Engine.")
@@ -606,7 +609,7 @@ async def run_risk_analysis(order: Order, merchant_key_hash: str | None, merchan
     risk_result["decision"] = "BLOCK" if risk_score >= risk_config.get("decision_threshold", 50.0) else "ALLOW"
 
     # Phase 28: Enterprise Telemetry (Usage-based Billing)
-    latency_ms = (time.time() - results[0].timestamp) * 1000 if hasattr(results[0], 'timestamp') else 0
+    latency_ms = (time.time() - start_time) * 1000 # Use start_time defined at the beginning of the function
     savings = 70.0 if risk_result["decision"] == "BLOCK" else 0.0
     asyncio.create_task(telemetry_service.record_scan(
         team_id=merchant_email, # Fallback to email if team_id not in context

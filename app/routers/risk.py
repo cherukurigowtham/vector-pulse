@@ -1,6 +1,5 @@
 import time
 import json
-import hashlib
 import secrets
 import logging
 import asyncio
@@ -8,13 +7,11 @@ from typing import (
     Any,
     cast,
     Dict,
-    List,
 )
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
-    Security,
     BackgroundTasks,
     Response,
 )
@@ -29,7 +26,6 @@ from app.core.redis import r
 from app.db.database import AUDIT_STORE
 from app.core.security import require_api_key, require_api_key_or_admin
 from app.core.helpers import (
-    _key_preview,
     _resolve_risk_config,
     _sliding_window_rate_limit,
     _log_event,
@@ -37,7 +33,6 @@ from app.core.helpers import (
 from app.services.risk_service import run_risk_analysis, _merchant_state_key
 from app.services.cache_service import dfc
 from app.core.intelligence import get_cluster_risk_bonus, apply_outcome_feedback
-from app.services.graph_service import link_identity
 from app.services.quarantine_service import process_fraud_feedback
 from app.services.monitoring_service import track_decision_bias
 

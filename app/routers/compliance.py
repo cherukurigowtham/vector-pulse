@@ -1,7 +1,6 @@
 import time
-import json
 import secrets
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from app.core.security import require_api_key
 from app.db.database import AUDIT_STORE
 

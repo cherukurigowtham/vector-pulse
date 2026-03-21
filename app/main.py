@@ -1,11 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from app.api.v1.risk import analysis as risk_analysis
 from app.api.v1.merchant import profile, team, reporting, payments
 from app.api.v1.security import auth, vault
-from app.core.config import ENVIRONMENT, CORS_ALLOW_ORIGINS
+from app.routers import public, merchant
+from app.core.config import CORS_ALLOW_ORIGINS
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.db.database import AUDIT_STORE
+from app.core.security import verify_jwt
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,6 +21,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Authentication Middleware (Populates request.state.user from JWT)
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    token = request.cookies.get("vp_token")
+    if token:
+        user = verify_jwt(token)
+        if user:
+            request.state.user = user
+    return await call_next(request)
+
 # Professional CORS Configuration
 app.add_middleware(
     CORSMiddleware,
@@ -28,11 +40,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.routers import public
-
-# ... (other imports)
-
-app.include_router(public.router)
+app.include_router(public.router, prefix="/api/v1")
+app.include_router(merchant.router, prefix="/api/v1")
 app.include_router(risk_analysis.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(vault.router, prefix="/api/v1")

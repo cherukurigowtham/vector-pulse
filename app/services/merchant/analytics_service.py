@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 from app.core.infrastructure.base_service import BaseService
 from app.repositories.risk_repository import RiskRepository
 

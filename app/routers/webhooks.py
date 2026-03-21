@@ -1,11 +1,6 @@
-import hmac
-import hashlib
 import json
 import logging
 from fastapi import APIRouter, Request, Header, HTTPException, BackgroundTasks
-from app.models import Order
-from app.routers.risk import check_order
-from app.core.security import require_api_key
 
 router = APIRouter(tags=["webhooks"])
 

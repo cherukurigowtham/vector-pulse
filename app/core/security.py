@@ -8,7 +8,7 @@ from app.core.config import (
 )
 from app.core.helpers import (
     PRIMARY_ADMIN_EMAIL,
-    _is_admin_email, _hash_key, _log_event
+    _is_admin_email, _hash_key
 )
 import logging
 
@@ -122,7 +122,23 @@ def require_role(allowed_roles: list[str]):
             logging.warning(f"Access denied for role {role}. Required: {allowed_roles}")
             raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-        # 3. Fallback to session check
+        # 3. Stateless JWT fallback for direct dependency usage/tests
+        token = request.cookies.get("vp_token")
+        if token:
+            payload = verify_jwt(token)
+            if payload:
+                token_user = {
+                    "email": payload.get("sub"),
+                    "role": payload.get("role", "VIEWER"),
+                    "team_id": payload.get("team_id", "personal"),
+                }
+                role = token_user["role"]
+                if role in allowed_roles:
+                    return token_user
+                logging.warning(f"Access denied for role {role}. Required: {allowed_roles}")
+                raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+        # 4. Fallback to session check
         session_id = request.cookies.get("vp_session")
         if not session_id:
             raise HTTPException(status_code=401, detail="Not authenticated")

@@ -1,7 +1,6 @@
 import logging
 import random
-import json
-from typing import Dict, Any, List
+from typing import Dict
 from app.core.redis import r, rk
 from app.core.config import RISK_CONFIG
 

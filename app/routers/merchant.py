@@ -1,8 +1,7 @@
 import time
-import json
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Response, Request
-from app.models import Order, RiskConfigUpdateRequest, MerchantSettingsUpdate, UpgradeRequest, WebhookSettingsUpdate, AutomationRulesUpdate
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.models import RiskConfigUpdateRequest, MerchantSettingsUpdate, UpgradeRequest, WebhookSettingsUpdate, AutomationRulesUpdate
 from app.core.config import RISK_CONFIG, RATE_LIMITS
 from app.core.redis import r
 from app.db.database import AUDIT_STORE
@@ -11,12 +10,12 @@ from app.core.helpers import (
     _has_custom_risk_profile, _log_risk_profile_change, _log_event,
     _find_key_hash_by_email, _key_preview, _is_admin_email
 )
-from app.core.security import require_api_key, require_admin, require_csrf, require_role
+from app.core.security import require_api_key, require_role
 from app.services.action_engine import ActionEngine
 
 engine = ActionEngine(r)
 
-router = APIRouter(prefix="/v1", tags=["merchant"])
+router = APIRouter(tags=["merchant"])
 
 @router.get("/auth/me", summary="Get the current logged in user's profile and API key")
 async def auth_me(request: Request):
@@ -141,23 +140,20 @@ async def auth_reporting(request: Request):
         recent_decisions.append({
             "risk_id": row.get("risk_id"),
             "uid": row.get("uid"),
-            "score": round(float(row.get("risk_score") or 0), 1),
+            "score": round(float(row.get("risk_score") or 0.0), 1),
             "decision": decision,
             "flags": flags,
             "outcome": outcome,
             "timestamp": row.get("timestamp"),
         })
 
-    top_factors = [
-        {"label": label, "count": count}
-        for label, count in sorted(factor_counts.items(), key=lambda item: (-item[1], item[0]))[:5]
-    ]
-
+    top_factors = sorted(list(factor_counts.items()), key=lambda x: x[1], reverse=True)[:5]
+    
     return {
         "summary": summary,
         "recent_audits": recent_rows,
         "last_latency": float(await r.get(f"stats:latency:{email}") or 0),
-        "top_flags": sorted(factor_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        "top_flags": top_factors
     }
 
 @router.get("/auth/settings", summary="Get merchant account settings")
@@ -185,7 +181,7 @@ async def auth_settings(request: Request):
     }
 
 @router.post("/auth/settings", summary="Update merchant account settings")
-async def update_auth_settings(update: MerchantSettingsUpdate, session: dict = Depends(require_role(["ADMIN"]))):
+async def update_auth_settings(update: MerchantSettingsUpdate, request: Request, session: dict = Depends(require_role(["ADMIN"]))):
     session_id = request.cookies.get("vp_session")
     if not session_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -244,7 +240,7 @@ async def get_webhook_settings(request: Request):
     }
 
 @router.post("/auth/settings/webhooks", summary="Update merchant webhook settings")
-async def update_webhook_settings(update: WebhookSettingsUpdate, session: dict = Depends(require_role(["ADMIN"]))):
+async def update_webhook_settings(update: WebhookSettingsUpdate, request: Request, session: dict = Depends(require_role(["ADMIN"]))):
     session_id = request.cookies.get("vp_session")
     if not session_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -266,7 +262,7 @@ async def update_webhook_settings(update: WebhookSettingsUpdate, session: dict =
     return {"status": "success", "webhook_url": fields.get("alert_webhook_url", "")}
 
 @router.post("/auth/upgrade-request", summary="Request a paid plan upgrade")
-async def request_upgrade(req: UpgradeRequest, session: dict = Depends(require_role(["ADMIN"]))):
+async def request_upgrade(req: UpgradeRequest, request: Request, session: dict = Depends(require_role(["ADMIN"]))):
     session_id = request.cookies.get("vp_session")
     if not session_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -323,7 +319,7 @@ async def get_rules(request: Request):
     return {"rules": rules}
 
 @router.post("/auth/rules", summary="Update merchant automation rules")
-async def update_rules(update: AutomationRulesUpdate, session: dict = Depends(require_role(["ADMIN"]))):
+async def update_rules(update: AutomationRulesUpdate, request: Request, session: dict = Depends(require_role(["ADMIN"]))):
     session_id = request.cookies.get("vp_session")
     if not session_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -412,11 +408,13 @@ async def test_connection(merchant: dict = Depends(require_api_key)):
     return {"status": "success", "authenticated_as": merchant["email"]}
 
 @router.post("/auth/financial-shield/opt-in", summary="Opt-in to RTO Insurance pilot")
-async def financial_shield_opt_in(session: dict = Depends(require_role(["ADMIN"]))):
+async def financial_shield_opt_in(request: Request, session: dict = Depends(require_role(["ADMIN"]))):
     session_id = request.cookies.get("vp_session")
-    if not session_id: raise HTTPException(status_code=401)
+    if not session_id:
+        raise HTTPException(status_code=401)
     email = await r.get(f"session:{session_id}")
-    if not email: raise HTTPException(status_code=401)
+    if not email:
+        raise HTTPException(status_code=401)
     
     await r.set(f"merchant:shield:active:{email}", "true")
     await _log_event(email, "FINANCIAL_SHIELD_OPT_IN", {"status": "active"})
@@ -425,9 +423,11 @@ async def financial_shield_opt_in(session: dict = Depends(require_role(["ADMIN"]
 @router.get("/auth/financial-shield/stats", summary="Get insurance coverage stats")
 async def financial_shield_stats(request: Request):
     session_id = request.cookies.get("vp_session")
-    if not session_id: raise HTTPException(status_code=401)
+    if not session_id:
+        raise HTTPException(status_code=401)
     email = await r.get(f"session:{session_id}")
-    if not email: raise HTTPException(status_code=401)
+    if not email:
+        raise HTTPException(status_code=401)
     
     is_active = await r.get(f"merchant:shield:active:{email}")
     # Simulate coverage data
@@ -438,14 +438,8 @@ async def financial_shield_stats(request: Request):
         "premium_accrued": 1250 if is_active == "true" else 0
     }
 
-@router.get("/v1/team/members", summary="Get list of team members")
-async def get_team_members(session: dict = Depends(require_role(["ADMIN", "ANALYST"]))):
-    team_id = session.get("team_id")
-    if not team_id:
-        return []
-    return await AUDIT_STORE.get_team_members(team_id)
 
-@router.post("/v1/team/invite", summary="Invite a new member to the team")
+@router.post("/team/invite", summary="Invite a new member to the team")
 async def invite_member(email: str, role: str, session: dict = Depends(require_role(["ADMIN"]))):
     team_id = session.get("team_id")
     inviter = session.get("email")
@@ -461,14 +455,14 @@ async def invite_member(email: str, role: str, session: dict = Depends(require_r
     
     return {"status": "success", "invite_id": invite_id}
 
-@router.get("/v1/team/invites", summary="Get pending team invitations")
+@router.get("/team/invites", summary="Get pending team invitations")
 async def get_team_invites(session: dict = Depends(require_role(["ADMIN", "ANALYST"]))):
     team_id = session.get("team_id")
     if not team_id:
         return []
     return await AUDIT_STORE.get_team_invitations(team_id)
 
-@router.post("/v1/risk/feedback", summary="Submit feedback on a risk adjudication")
+@router.post("/risk/feedback", summary="Submit feedback on a risk adjudication")
 async def submit_risk_feedback(risk_id: str, feedback_type: str, session: dict = Depends(require_role(["ADMIN", "ANALYST"]))):
     """
     Phase 29: Autonomous Governance Feedback.

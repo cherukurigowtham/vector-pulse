@@ -7,7 +7,6 @@ sys.path.append(os.getcwd())
 
 from app.core.redis import r, rk
 from app.db.database import AUDIT_STORE, SQLiteStore, PostgresStore
-from app.core.config import REDIS_PREFIX
 
 async def verify_redis_isolation():
     print("--- Verifying Redis Isolation ---")

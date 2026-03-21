@@ -12,6 +12,7 @@ class Order(BaseModel):
     phone: str | None = Field(None, pattern=r"^[6-9]\d{9}$")
     ip: str = Field("127.0.0.1", pattern=r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}$")
     device_hash: str | None = Field(None, min_length=16, max_length=128)
+    card_bin: str | None = Field(None, pattern=r"^\d{6}$")
     checkout_time_secs: float | None = Field(None, ge=0)
     # Behavioral DNA Fields
     keystroke_velocity: float | None = Field(None, ge=0)

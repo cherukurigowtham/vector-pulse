@@ -1,7 +1,7 @@
 import logging
 import time
 import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from app.core.redis import rk
 
 logger = logging.getLogger(__name__)

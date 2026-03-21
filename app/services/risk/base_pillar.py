@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Any
+from typing import Optional
 from app.models.dto.risk_context import RiskContext
 
 class BaseRiskPillar(ABC):

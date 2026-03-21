@@ -1,5 +1,4 @@
 import logging
-import time
 from app.core.redis import r
 
 async def track_decision_bias(merchant_email: str, decision: str, metadata: dict):

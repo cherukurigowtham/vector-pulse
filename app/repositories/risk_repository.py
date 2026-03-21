@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from app.repositories.base_repository import BaseRepository
 from app.db.database import AUDIT_STORE
 from app.core.redis import rk

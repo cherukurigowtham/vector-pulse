@@ -1,17 +1,14 @@
 import time
-import json
-import logging
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
-from app.models import AdminSessionRequest, RiskConfigUpdateRequest, PilotRequestStatusUpdate, PilotRequestDetailUpdate, UpgradeRequestDecision
-from app.core.config import RISK_CONFIG, RATE_LIMITS
+from app.models import AdminSessionRequest, RiskConfigUpdateRequest
+from app.core.config import RATE_LIMITS
 from app.core.redis import r
-from app.db.database import AUDIT_STORE
 from app.core.helpers import (
     ADMIN_KEY, PRIMARY_ADMIN_EMAIL, _is_admin_email, _resolve_risk_config, 
     _validate_risk_value, _coerce_risk_value, _has_custom_risk_profile, 
-    _find_key_hash_by_email, _log_risk_profile_change, _log_event, _key_preview
+    _find_key_hash_by_email, _log_risk_profile_change, _key_preview
 )
-from app.core.security import require_admin, _create_session, require_csrf
+from app.core.security import require_admin, _create_session
 
 router = APIRouter(prefix="/v1/admin", tags=["admin"])
 

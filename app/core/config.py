@@ -1,5 +1,4 @@
 import os
-from typing import Any
 
 def _env_int(name: str, default: int) -> int:
     raw = os.getenv(name)
@@ -36,6 +35,7 @@ CORS_ALLOW_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "*"
 ]
 
 RATE_LIMITS = {

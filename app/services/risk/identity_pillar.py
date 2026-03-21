@@ -1,6 +1,6 @@
 import hashlib
 import logging
-from typing import Tuple, Optional, Any
+from typing import Tuple
 from app.services.risk.base_pillar import BaseRiskPillar
 from app.models.dto.risk_context import RiskContext
 from app.core.redis import r, rk
@@ -48,16 +48,16 @@ class IdentityPillar(BaseRiskPillar):
             context.flags.append(f"HIGH_IDENTITY_DIVERSITY({int(diversity)})")
             context.impacts["IDENTITY_DIVERSITY"] = float(risk_config.get("identity_weight", 20.0)) * 0.4
         
-        # Log event for diversity tracking
-        if context.order.email and context.order.card_bin:
-            await feature_store.record_event(context.merchant_email, context.order.email, context.order.card_bin)
+        # 3. Associate Email with BIN (Card Fingerprinting)
+        card_bin = getattr(context.order, "card_bin", None)
+        if context.order.email and card_bin:
+            await feature_store.record_event(context.merchant_email, context.order.email, card_bin)
 
         if context.consortium_hits > 0:
             context.flags.append(f"FRAUD_RING_LINK({context.consortium_hits})")
             context.impacts["FRAUD_RING"] = min(5, context.consortium_hits) * float(risk_config.get("global_network_weight", 15.0))
 
     async def _check_blacklist(self, context: RiskContext) -> bool:
-        from app.core.redis import r
         async with r.pipeline() as pipe:
             if context.order.email: pipe.sismember(rk("global:blacklist:email"), context.order.email.lower().strip())
             if context.order.phone: pipe.sismember(rk("global:blacklist:phone"), context.order.phone.strip())
@@ -66,7 +66,6 @@ class IdentityPillar(BaseRiskPillar):
 
     async def _check_clustering(self, context: RiskContext) -> Tuple[bool, float]:
         import vector_pulse
-        from app.core.redis import r
         try:
             addr_fp = vector_pulse.address_fingerprint(context.order.addr)
             m_hash = context.merchant_key_hash or "anon"

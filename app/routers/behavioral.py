@@ -1,7 +1,7 @@
 import logging
 import json
 import time
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Depends
 from app.models import BehavioralIngestRequest
 from app.core.redis import r
 from app.core.security import require_api_key

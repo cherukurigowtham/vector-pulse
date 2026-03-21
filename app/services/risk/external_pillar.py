@@ -1,6 +1,5 @@
 import logging
 import asyncio
-from typing import Optional, Any
 from app.services.risk.base_pillar import BaseRiskPillar
 from app.models.dto.risk_context import RiskContext
 

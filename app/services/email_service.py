@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +38,11 @@ class EmailService:
         """
         
         # Professional Logging (Production Simulation)
-        logger.info(f"--- OUTGOING EMAIL [TRANSACTIONAL] ---")
+        logger.info("--- OUTGOING EMAIL [TRANSACTIONAL] ---")
         logger.info(f"To: {email}")
         logger.info(f"Subject: {subject}")
         logger.info(f"Content: {body}")
-        logger.info(f"--------------------------------------")
+        logger.info("--------------------------------------")
         
         # In a real production environment, we would use an SMTP client or API here
         # Example: await smtp_client.send_message(message)
