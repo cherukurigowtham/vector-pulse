@@ -41,7 +41,7 @@ export default function Navigation() {
           return;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000"}/api/v1/security/auth/me`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || "https://vantix-wjsk.onrender.com"}/api/v1/security/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!response.ok) return;
@@ -66,7 +66,7 @@ export default function Navigation() {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem("vp_token");
-      await fetch(`${process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000"}/api/v1/security/auth/logout`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_BASE || "https://vantix-wjsk.onrender.com"}/api/v1/security/auth/logout`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -201,7 +201,7 @@ export default function Navigation() {
             return;
           }
 
-          fetch(`${process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000"}/api/v1/security/auth/me`, {
+          fetch(`${process.env.NEXT_PUBLIC_API_BASE || "https://vantix-wjsk.onrender.com"}/api/v1/security/auth/me`, {
             headers: { Authorization: `Bearer ${token}` },
           })
             .then((res) => res.json())
