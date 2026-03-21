@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Request
 from app.api.v1.risk import analysis as risk_analysis
+from app.api.v1.risk import forensics
 from app.api.v1.merchant import profile, team, reporting, billing
 from app.api.v1.security import auth, vault
-from app.routers import public, merchant
+from app.routers import public, merchant, stream
 from app.core.config import CORS_ALLOW_ORIGINS
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -42,7 +43,9 @@ app.add_middleware(
 
 app.include_router(public.router, prefix="/api/v1")
 app.include_router(merchant.router, prefix="/api/v1")
+app.include_router(stream.router, prefix="/api/v1")
 app.include_router(risk_analysis.router, prefix="/api/v1")
+app.include_router(forensics.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(vault.router, prefix="/api/v1")
 app.include_router(profile.router, prefix="/api/v1")
