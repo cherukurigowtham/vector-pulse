@@ -226,14 +226,25 @@ async function processOrder(order) {
                   ))}
                 </ul>
                 
-                <button className={cn(
-                  "w-full py-3 rounded-xl text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2",
-                  plan.highlight 
-                    ? "bg-zinc-900 !text-white hover:bg-zinc-800 shadow-md" 
-                    : "bg-white text-zinc-900 border border-zinc-200 hover:bg-zinc-50 shadow-sm"
-                )}>
-                  {plan.cta}
-                </button>
+                {plan.name === "Enterprise" ? (
+                  <button className={cn(
+                    "w-full py-3 rounded-xl text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2",
+                    plan.highlight 
+                      ? "bg-zinc-900 !text-white hover:bg-zinc-800 shadow-md" 
+                      : "bg-white text-zinc-900 border border-zinc-200 hover:bg-zinc-50 shadow-sm"
+                  )}>
+                    {plan.cta}
+                  </button>
+                ) : (
+                  <Link href={`/checkout?plan=${plan.name.toLowerCase()}`} className={cn(
+                    "block text-center w-full py-3 rounded-xl text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2",
+                    plan.highlight 
+                      ? "bg-zinc-900 !text-white hover:bg-zinc-800 shadow-md" 
+                      : "bg-white text-zinc-900 border border-zinc-200 hover:bg-zinc-50 shadow-sm"
+                  )}>
+                    {plan.cta}
+                  </Link>
+                )}
               </article>
             ))}
           </div>

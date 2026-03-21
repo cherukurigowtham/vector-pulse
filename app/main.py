@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from app.api.v1.risk import analysis as risk_analysis
-from app.api.v1.merchant import profile, team, reporting, payments
+from app.api.v1.merchant import profile, team, reporting, billing
 from app.api.v1.security import auth, vault
 from app.routers import public, merchant
 from app.core.config import CORS_ALLOW_ORIGINS
@@ -48,7 +48,7 @@ app.include_router(vault.router, prefix="/api/v1")
 app.include_router(profile.router, prefix="/api/v1")
 app.include_router(team.router, prefix="/api/v1")
 app.include_router(reporting.router, prefix="/api/v1")
-app.include_router(payments.router, prefix="/api/v1")
+app.include_router(billing.router, prefix="/api/v1")
 
 @app.get("/health")
 async def health():

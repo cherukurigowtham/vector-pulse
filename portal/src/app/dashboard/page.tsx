@@ -48,6 +48,7 @@ const SEED_DATA: DashboardStats = {
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>(SEED_DATA)
   const [loading, setLoading] = useState(false)
+  const [userTier, setUserTier] = useState<string>("Free")
 
   useEffect(() => {
     async function init() {
@@ -55,6 +56,14 @@ export default function Dashboard() {
         const data = await apiFetch("/merchant/reporting/summary")
         if (data && (data.total_scanned || data.month_scans)) {
           setStats(data as DashboardStats)
+        }
+        
+        // Fetch the user's active billing tier from the backend session
+        const authData = await apiFetch("/security/auth/me").then(r => r.json());
+        if (authData && authData.user && authData.user.plan) {
+          setUserTier(authData.user.plan);
+        } else {
+          setUserTier("Growth"); // Optimistic UI fallback
         }
       } catch {
         // fallback data
@@ -121,7 +130,15 @@ export default function Dashboard() {
   return (
     <div className="page-shell space-y-8">
       <div className="flex flex-col gap-2 pb-6 border-b border-zinc-200">
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Console Overview</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Console Overview</h1>
+          {userTier && (
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-zinc-900 rounded-full shadow-md text-white border border-black transform transition-transform hover:scale-105">
+              <Zap className="h-3.5 w-3.5 fill-emerald-400 text-emerald-400" />
+              <span className="text-[10px] font-bold tracking-widest uppercase">{userTier} Tier</span>
+            </div>
+          )}
+        </div>
         <p className="text-sm text-zinc-500 font-medium">Real-time risk telemetry and institutional decision outcomes.</p>
       </div>
 
