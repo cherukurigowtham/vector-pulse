@@ -1,6 +1,5 @@
 import asyncio
 import uuid
-import time
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel

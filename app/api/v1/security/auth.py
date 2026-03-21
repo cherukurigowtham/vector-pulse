@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Response, Request, HTTPException
-from app.core.security import verify_jwt, create_jwt_token
+from app.core.security import create_jwt_token
 from app.repositories.factory import get_merchant_repo
 from app.repositories.merchant_repository import MerchantRepository
 

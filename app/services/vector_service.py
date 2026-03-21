@@ -51,7 +51,6 @@ async def check_vector_cluster(order_hash: str):
     Checks if this semantic cluster has been flagged as fraudulent by multiple merchants.
     """
     try:
-        cluster_key = f"vector:cluster:{order_hash}"
         # A cluster is 'quarantined' if it has a high fraud-to-delivery ratio or explicit reports.
         is_quarantined = await r.sismember("global:quarantine", order_hash)
         return is_quarantined

@@ -24,6 +24,8 @@ const data = [
   { time: "23:59", scans: 500, blocks: 30 },
 ]
 
+import type { WSMetricPayload } from "@/app/dashboard/page"
+
 const threatData = [
   { name: "Velocity", value: 45, color: "#18181b" },
   { name: "Identity", value: 30, color: "#52525b" },
@@ -31,7 +33,7 @@ const threatData = [
   { name: "Geo", value: 10, color: "#d4d4d8" },
 ]
 
-export function RiskPulseChart() {
+export function RiskPulseChart({ wsMetrics }: { wsMetrics?: WSMetricPayload }) {
   const [activeData, setActiveData] = useState(() => {
     return Array.from({ length: 24 }).map((_, i) => ({
       time: new Date(Date.now() - (23 - i) * 2000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -41,19 +43,21 @@ export function RiskPulseChart() {
   })
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveData((prev) => {
-        const next = [...prev.slice(1)]
-        next.push({
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          scans: Math.floor(Math.random() * 500) + 200,
-          blocks: Math.floor(Math.random() * 50) + 10,
-        })
-        return next
+    if (!wsMetrics) return;
+    
+    setActiveData((prev) => {
+      const next = [...prev.slice(1)]
+      const lastScans = next[next.length - 1].scans;
+      const lastBlocks = next[next.length - 1].blocks;
+
+      next.push({
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        scans: lastScans + (Math.random() > 0.5 ? 2 : -1),
+        blocks: wsMetrics.action === "BLOCKED" ? lastBlocks + 1 : lastBlocks,
       })
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [])
+      return next
+    })
+  }, [wsMetrics])
 
   return (
     <div className="h-72 w-full">
@@ -102,20 +106,22 @@ export function RiskPulseChart() {
   )
 }
 
-export function ThreatDistributionChart() {
+export function ThreatDistributionChart({ wsMetrics }: { wsMetrics?: WSMetricPayload }) {
   const [activeThreatData, setActiveThreatData] = useState(threatData)
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    if (!wsMetrics) return;
+    if (wsMetrics.action === "BLOCKED" && wsMetrics.vector) {
       setActiveThreatData((prev) => {
-        return prev.map(t => ({
-          ...t,
-          value: Math.max(0, t.value + (Math.random() * 6 - 3))
-        }))
+        return prev.map(t => {
+          if (t.name.toUpperCase().includes(wsMetrics.vector.split('_')[0])) {
+            return { ...t, value: t.value + Math.floor(Math.random() * 5 + 1) };
+          }
+          return t;
+        })
       })
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [])
+    }
+  }, [wsMetrics])
 
   return (
     <div className="h-64 w-full">

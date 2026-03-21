@@ -2,8 +2,14 @@ import Link from "next/link";
 import { Zap, ShieldCheck } from "lucide-react";
 import PaymentForm from "@/components/billing/PaymentForm";
 
-export default function CheckoutPage({ searchParams }: { searchParams: { plan?: string } }) {
-  const plan = searchParams.plan || "growth";
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+export default async function CheckoutPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const rawPlan = typeof params.plan === "string" ? params.plan : "growth";
+  const plan = rawPlan || "growth";
   
   const planName = plan.charAt(0).toUpperCase() + plan.slice(1);
   const price = plan === "professional" ? "$999" : "$299";

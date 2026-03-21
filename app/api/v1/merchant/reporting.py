@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from app.services.merchant.analytics_service import AnalyticsService
 from app.repositories.factory import get_risk_repo
 from app.core.security import require_role

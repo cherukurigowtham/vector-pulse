@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from app.services.merchant.team_service import TeamService
 from app.core.security import require_role
 

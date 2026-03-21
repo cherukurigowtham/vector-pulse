@@ -62,7 +62,7 @@ class DeepSystemTest:
         
         # For the test, we'll just verify it handles a match if we provide one.
         # Let's find what "fraudster@evil.com" with salt "consortium_salt_v1" hashes to.
-        commit = zk_service.generate_commitment(pii, "m_1", "consortium_salt_v1")
+        zk_service.generate_commitment(pii, "m_1", "consortium_salt_v1")
         
         # Actually, let's just use the special test PII we added to the mock.
         bonus = await zk_service.verify_consortium_risk("test_fraud@vantix.ai", "m_1", "consortium_salt_v1")

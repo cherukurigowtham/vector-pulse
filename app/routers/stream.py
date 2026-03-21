@@ -21,9 +21,10 @@ class ConnectionManager:
 
     def disconnect(self, websocket: WebSocket, client_id: str):
         if client_id in self.active_connections:
-            self.active_connections[client_id].remove(websocket)
+            if websocket in self.active_connections[client_id]:
+                self.active_connections[client_id].remove(websocket)
             if not self.active_connections[client_id]:
-                del self.active_connections[client_id]
+                self.active_connections.pop(client_id, None)
 
     async def broadcast_to_client(self, message: dict, client_id: str):
         if client_id in self.active_connections:
@@ -61,7 +62,8 @@ async def websocket_noc_endpoint(websocket: WebSocket, token: str = Query(...)):
             
             # Formulate simulated live threat vectors
             is_threat = random.random() > 0.88
-            score = round(random.uniform(85.0, 99.0) if is_threat else random.uniform(5.0, 35.0), 1)
+            raw_score = random.uniform(85.0, 99.0) if is_threat else random.uniform(5.0, 35.0)
+            score = float(f"{raw_score:.1f}")
             
             payload = {
                 "event": "live_telemetry",

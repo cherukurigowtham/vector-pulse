@@ -52,7 +52,6 @@ class EmailService:
         """
         Sends a security or risk alert to the merchant.
         """
-        subject = f"Vantix Security Alert: {alert_type}"
         logger.info(f"--- SECURITY ALERT DISPATCHED TO {email} ---")
         
         return True

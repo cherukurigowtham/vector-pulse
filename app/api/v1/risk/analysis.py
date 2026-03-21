@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks
 from app.models import Order
 from app.core.security import require_api_key
 from app.services.risk.factory import get_risk_engine
@@ -7,7 +7,6 @@ from app.models.dto.risk_context import RiskContext
 from app.core.config import RISK_CONFIG
 from app.core.redis import r
 from app.services.webhook_dispatcher import webhook_dispatcher
-from app.core.config import RISK_CONFIG
 
 router = APIRouter(prefix="/risk", tags=["Risk Analysis"])
 

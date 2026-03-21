@@ -14,16 +14,13 @@ class ForensicsService:
         """
         narrative = [f"### Forensic Report: {risk_id}", f"**Decision**: {decision} (Score: {score:.1f}/100)", ""]
         
-        impacts = context.impacts
         flags = context.flags
         
         # 1. Primary Vector Identification
         narrative.append("#### Analysis Summary")
         if score > 50:
-            primary_finding = "High-Risk Vector Spotted"
             narrative.append("The transaction was flagged as high-risk primarily due to a convergence of multiple suspicious indicators.")
         else:
-            primary_finding = "Standard Risk Profile"
             narrative.append("The transaction was allowed as the risk indicators fell within the merchant's safety parameters.")
             
         # 2. Detailed Findings

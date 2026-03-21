@@ -1,9 +1,7 @@
 import pytest
-import asyncio
 import httpx
 from app.main import app
 from app.core.security import create_jwt_token
-import secrets
 
 BASE_URL = "http://testserver"
 
@@ -95,5 +93,4 @@ async def test_invalid_json_payloads(async_client):
 
 if __name__ == "__main__":
     # If run directly, run the tests
-    import sys
     pytest.main([__file__])

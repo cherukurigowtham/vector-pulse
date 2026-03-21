@@ -7,6 +7,13 @@ import { apiFetch } from "@/lib/api"
 import { GovernanceLog } from "@/components/dashboard/GovernanceLog"
 import { cn } from "@/lib/cn"
 
+export type WSMetricPayload = {
+  score: number;
+  latency_ms: number;
+  action: string;
+  vector: string;
+} | null;
+
 const RiskPulseChart = dynamic(() => import("@/components/dashboard/Charts").then((m) => m.RiskPulseChart), { ssr: false })
 const ThreatDistributionChart = dynamic(() => import("@/components/dashboard/Charts").then((m) => m.ThreatDistributionChart), { ssr: false })
 const IdentityPulse = dynamic(() => import("@/components/dashboard/IdentityPulse").then((m) => m.IdentityPulse), { ssr: false })
@@ -49,6 +56,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>(SEED_DATA)
   const [loading, setLoading] = useState(false)
   const [userTier, setUserTier] = useState<string>("Free")
+  const [wsMetrics, setWsMetrics] = useState<WSMetricPayload>(null)
 
   useEffect(() => {
     async function init() {
@@ -58,38 +66,51 @@ export default function Dashboard() {
           setStats(data as DashboardStats)
         }
         
-        // Fetch the user's active billing tier from the backend session
         const authData = await apiFetch("/security/auth/me").then(r => r.json());
         if (authData && authData.user && authData.user.plan) {
           setUserTier(authData.user.plan);
         } else {
-          setUserTier("Growth"); // Optimistic UI fallback
+          setUserTier("Growth"); 
         }
-      } catch {
-        // fallback data
-      } finally {
+      } catch {} finally {
         setLoading(false)
       }
     }
-
     init()
 
-    const events = ["RATE_LIMIT_EXCEEDED", "ANOMALOUS_GEO_LOGIN", "KEY_ROTATION_TRIGGERED", "NEW_DEVICE_FINGERPRINT", "BLOCK_RULE_UPDATED"]
-    const interval = setInterval(() => {
-      setStats(prev => {
-        const newLog = {
-          action: events[Math.floor(Math.random() * events.length)],
-          timestamp: Math.floor(Date.now() / 1000),
-          actor: "live-stream"
+    const token = localStorage.getItem("vp_token");
+    if (!token) return;
+    
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE || "https://vantix-wjsk.onrender.com";
+    const wsUrl = baseUrl.replace(/^http/, "ws") + `/api/v1/stream/ws/noc?token=${token}`;
+    
+    const ws = new WebSocket(wsUrl);
+    
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.event === "live_telemetry") {
+          setWsMetrics(data.metrics);
+          
+          // Physically update the overarching state layer without polling
+          setStats(prev => {
+            const isBlocked = data.metrics.action === "BLOCKED";
+            return {
+              ...prev,
+              month_scans: (prev.month_scans || 0) + 1,
+              blocks: isBlocked ? (prev.blocks || 0) + 1 : prev.blocks,
+              governance_logs: isBlocked ? [{
+                action: data.metrics.vector,
+                timestamp: data.timestamp,
+                actor: "live-stream(ai)"
+              }, ...(prev.governance_logs || []).slice(0, 4)] : prev.governance_logs
+            }
+          });
         }
-        return {
-          ...prev,
-          governance_logs: [newLog, ...(prev.governance_logs || []).slice(0, 4)]
-        }
-      })
-    }, 4500)
+      } catch (err) {}
+    };
 
-    return () => clearInterval(interval)
+    return () => ws.close()
   }, [])
 
   const cards = [
@@ -181,12 +202,12 @@ export default function Dashboard() {
               <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-red-500" />Blocks</span>
             </div>
           </div>
-          <RiskPulseChart />
+          <RiskPulseChart wsMetrics={wsMetrics} />
         </article>
 
         <article className="app-card p-6">
           <h2 className="mb-6 text-base font-semibold text-zinc-900">Threat Distribution</h2>
-          <ThreatDistributionChart />
+          <ThreatDistributionChart wsMetrics={wsMetrics} />
         </article>
       </section>
 
@@ -194,11 +215,16 @@ export default function Dashboard() {
         <article className="app-card p-6">
           <h2 className="mb-6 text-base font-semibold text-zinc-900">Governance Log</h2>
           <GovernanceLog
-            logs={stats.governance_logs?.map((log) => ({
-              time: log.timestamp,
-              event: log.action.replace(/_/g, " "),
-              status: "Audited",
-            }))}
+            logs={stats.governance_logs?.map((log) => {
+              const isThreat = log.actor?.includes("(ai)");
+              return {
+                id: log.timestamp.toString(),
+                time: log.timestamp,
+                event: log.action.replace(/_/g, " "),
+                status: isThreat ? "Error" : "Audited",
+                riskId: isThreat ? `mc_tx_${log.timestamp}` : undefined
+              };
+            })}
           />
         </article>
 

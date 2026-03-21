@@ -38,7 +38,7 @@ class ShieldMonitor:
         Calculates the current block rate. 
         If block rate > 30% and volume > 10 reqs, activate Shield Mode.
         """
-        ts = int(time.time())
+        int(time.time())
         total_key = rk("shield:event_log")
         block_key = rk("shield:block_log")
         

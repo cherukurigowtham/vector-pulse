@@ -1,7 +1,6 @@
 import pytest
-import asyncio
 from app.core.security import create_jwt_token, require_role
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 
 class MockRequest:
     def __init__(self, token):

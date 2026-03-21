@@ -1,17 +1,41 @@
 "use client"
 
-import { useState } from "react"
-import { Bell, Copy, Key, Mail, RefreshCw, Save, ShieldCheck, User } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Bell, Copy, Key, Mail, RefreshCw, Save, ShieldCheck, User, Zap } from "lucide-react"
 import { cn } from "@/lib/cn"
+import { apiFetch } from "@/lib/api"
 
 export default function SettingsPage() {
   const [apiKey] = useState("vp_live_6f28...9a3d")
   const [copied, setCopied] = useState(false)
+  
+  const [webhookUrl, setWebhookUrl] = useState("")
+  const [webhookSecret, setWebhookSecret] = useState("")
+
+  useEffect(() => {
+    apiFetch("/merchant/profile/webhooks")
+      .then(res => {
+        setWebhookUrl(res.alert_webhook_url || "")
+        setWebhookSecret(res.webhook_secret || "")
+      }).catch(console.error)
+  }, [])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(apiKey)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleSaveWebhooks = async () => {
+    try {
+      await apiFetch("/merchant/profile/webhooks", {
+        method: "PATCH",
+        body: JSON.stringify({ alert_webhook_url: webhookUrl, webhook_secret: webhookSecret })
+      })
+      alert("Retaliation hook armed successfully.")
+    } catch {
+      alert("Failed to serialize webhook configurations.")
+    }
   }
 
   return (
@@ -57,6 +81,41 @@ export default function SettingsPage() {
           <button onClick={handleCopy} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:bg-slate-100">
             {copied ? <ShieldCheck className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
           </button>
+        </div>
+      </section>
+
+      <section className="app-card p-5 border-l-4 border-indigo-500">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+            <Zap className="h-4 w-4 text-indigo-500" />
+            Autonomous Webhook Retaliation
+          </div>
+          <button onClick={handleSaveWebhooks} className="inline-flex items-center gap-1.5 rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-indigo-700 hover:bg-indigo-100 transition-colors shadow-sm">
+            <Save className="h-3.5 w-3.5" />
+            Arm Target
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">Outbound Alert URL (POST)</label>
+            <input 
+              className="app-input font-mono text-sm focus:ring-indigo-500" 
+              placeholder="https://api.yourdomain.com/webhooks/vantix" 
+              value={webhookUrl}
+              onChange={e => setWebhookUrl(e.target.value)} 
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">Cryptographic Secret (HMAC-SHA256)</label>
+            <input 
+              type="password"
+              className="app-input font-mono text-sm focus:ring-indigo-500" 
+              placeholder="whsec_xxxxx" 
+              value={webhookSecret}
+              onChange={e => setWebhookSecret(e.target.value)} 
+            />
+          </div>
         </div>
       </section>
 

@@ -26,7 +26,7 @@ async def shopify_order_webhook(
         
         # Transform Shopify format to Vector-Pulse Order format
         # This is the "Strong Logic" part - mapping platform-specific fields
-        order_payload = {
+        {
             "uid": str(data.get("id")),
             "amt": float(data.get("total_price", 0)),
             "addr": f"{data.get('shipping_address', {}).get('address1', '')} {data.get('shipping_address', {}).get('zip', '')}",
