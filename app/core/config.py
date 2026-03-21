@@ -35,7 +35,7 @@ CORS_ALLOW_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "*"
+    "https://portal-three-drab.vercel.app"
 ]
 
 RATE_LIMITS = {
