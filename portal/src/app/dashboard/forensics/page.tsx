@@ -1,168 +1,94 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { 
-  BrainCircuit, 
-  Send, 
-  User, 
-  Bot, 
-  Scale, 
-  ShieldCheck, 
-  ExternalLink,
-  ChevronRight,
-  Sparkles
-} from "lucide-react"
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
+import { useState } from "react"
+import { Bot, Send, Sparkles, Terminal } from "lucide-react"
+import { cn } from "@/lib/cn"
 
 export default function ForensicAnalyst() {
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "Hello! I am your AI Forensic Analyst. You can ask me to analyze a specific Transaction ID or query my reasoning on recent blocks.", time: "10:30 AM" }
+    { role: "assistant", content: "Forensics assistant is online. Ask about an anomaly and I will summarize likely causes." },
   ])
   const [input, setInput] = useState("")
   const [isTyping, setIsTyping] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [messages, isTyping])
-
-  const handleSend = async () => {
+  const handleSend = () => {
     if (!input.trim()) return
-    
-    const userMsg = { role: "user", content: input, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-    setMessages(prev => [...prev, userMsg])
+    setMessages((prev) => [...prev, { role: "user", content: input }])
     setInput("")
     setIsTyping(true)
 
-    // Simulate AI reasoning (Free-of-cost local logic or Gemini Free Tier)
     setTimeout(() => {
-      let response = "I've analyzed the request. Based on the Identity Pillar and Velocity spikes in the Maharashtra region, the block is justified with 92% confidence."
-      
-      if (input.toLowerCase().includes("r-9201")) {
-        response = "Audit R-9201 originated from a known VPN IP range (DigitalOcean Proxy). The user attempted 4 checkouts in 30 seconds, triggering a High Velocity block. Reputation score is low (12/100)."
-      }
-
-      const botMsg = { role: "assistant", content: response, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-      setMessages(prev => [...prev, botMsg])
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "I found an elevated velocity pattern in the Maharashtra segment over the last 6 hours. Recommend stricter rules for first-time users and closer device clustering checks.",
+        },
+      ])
       setIsTyping(false)
-    }, 1500)
+    }, 1000)
   }
 
   return (
-    <div className="flex h-[calc(100vh-160px)] flex-col gap-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <BrainCircuit className="h-6 w-6 text-indigo-500" />
-          AI Forensic Analyst
-        </h1>
-        <p className="text-slate-500">Conversational risk intelligence powered by Gemini.</p>
-      </div>
-
-      <div className="flex flex-1 gap-6 overflow-hidden">
-        {/* Chat Interface */}
-        <div className="flex flex-1 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={cn(
-                "flex gap-4 max-w-[85%]",
-                msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
-              )}>
-                <div className={cn(
-                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm font-bold",
-                  msg.role === "user" ? "bg-slate-50 border-slate-200 text-slate-600" : "bg-indigo-50 border-indigo-100 text-indigo-600"
-                )}>
-                  {msg.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                </div>
-                <div className="space-y-1">
-                  <div className={cn(
-                    "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-                    msg.role === "user" 
-                      ? "bg-slate-900 text-white" 
-                      : "bg-slate-50 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700 shadow-sm"
-                  )}>
-                    {msg.content}
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-medium px-1">{msg.time}</p>
-                </div>
-              </div>
-            ))}
-            {isTyping && (
-              <div className="flex gap-4 mr-auto">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600">
-                  <Bot className="h-4 w-4" />
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl px-4 py-2.5 flex items-center gap-1.5 shadow-sm border border-slate-100 dark:border-slate-700">
-                  <div className="h-1.5 w-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="h-1.5 w-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="h-1.5 w-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-              </div>
-            )}
+    <div className="flex h-[calc(100vh-10rem)] flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-blue-50 p-2.5 text-blue-600">
+            <Bot className="h-5 w-5" />
           </div>
-
-          <div className="border-t p-4 flex gap-3 bg-slate-50/30 dark:bg-slate-950/30">
-            <input 
-              type="text" 
-              placeholder="Ask about a Transaction ID (e.g., R-9201)..." 
-              className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-slate-800 dark:bg-slate-900 shadow-sm"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            />
-            <button 
-              onClick={handleSend}
-              className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
-              disabled={!input.trim()}
-            >
-              <Send className="h-5 w-5" />
-            </button>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">AI Forensics</h1>
+            <p className="text-sm text-slate-600">Investigate suspicious behavior quickly.</p>
           </div>
         </div>
 
-        {/* Sidebar Context */}
-        <div className="w-80 space-y-6 overflow-y-auto">
-           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
-                 <Sparkles className="h-4 w-4 text-amber-500" />
-                 Suggested Inquiries
-              </h3>
-              <div className="space-y-2">
-                 {[
-                   "Why was R-9201 blocked?",
-                   "Show identity clusters today",
-                   "Summarize velocity alerts",
-                   "Draft a whitelist rule"
-                 ].map(q => (
-                   <button 
-                    key={q} 
-                    onClick={() => setInput(q)}
-                    className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/50 p-2.5 text-left text-xs font-medium text-slate-600 hover:border-indigo-200 hover:bg-white hover:text-indigo-600 transition-all dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:text-indigo-400 group"
-                   >
-                     {q}
-                     <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                   </button>
-                 ))}
-              </div>
-           </div>
+        <button className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400">
+          <Terminal className="h-4 w-4" />
+          View logs
+        </button>
+      </div>
 
-           <div className="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-5 dark:border-emerald-900/30 dark:bg-emerald-900/10">
-              <h3 className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 mb-3">
-                 <ShieldCheck className="h-3.5 w-3.5" />
-                 Confidence Score
-              </h3>
-              <div className="text-3xl font-black text-emerald-600 dark:text-emerald-500">92.4%</div>
-              <p className="mt-2 text-[11px] text-emerald-700/70 dark:text-emerald-500/50 leading-relaxed font-medium">
-                Analysis based on unified consortium intelligence and cognitive behavioral DNA.
-              </p>
-           </div>
+      <div className="app-card flex flex-1 flex-col overflow-hidden">
+        <div className="flex-1 space-y-5 overflow-y-auto p-5">
+          {messages.map((message, index) => (
+            <div key={index} className={cn("max-w-[85%]", message.role === "user" ? "ml-auto" : "mr-auto")}>
+              <div
+                className={cn(
+                  "rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                  message.role === "user" ? "bg-blue-600 text-white" : "border border-slate-200 bg-slate-50 text-slate-700",
+                )}
+              >
+                {message.content}
+              </div>
+            </div>
+          ))}
+
+          {isTyping ? (
+            <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <Sparkles className="h-4 w-4" />
+              Analyzing latest events...
+            </div>
+          ) : null}
+        </div>
+
+        <div className="border-t border-slate-200 p-4">
+          <div className="relative">
+            <input
+              type="text"
+              className="app-input pr-12"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              placeholder="Ask about suspicious behavior"
+            />
+            <button
+              onClick={handleSend}
+              className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg bg-[var(--primary)] text-white hover:bg-blue-700"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

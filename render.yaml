@@ -1,8 +1,7 @@
 services:
   - type: web
-    name: vector-pulse-api
-    runtime: docker
-    dockerfilePath: ./Dockerfile
+    name: vantix
+    env: docker
     plan: free
     envVars:
       - key: REDIS_HOST
@@ -14,12 +13,20 @@ services:
       - key: REDIS_SSL
         value: "true"        # Upstash requires SSL
       - key: DATABASE_URL
-        sync: false          # Optional but recommended: managed Postgres for audit persistence
+        fromDatabase:
+          name: vector-pulse-postgres
+          property: connectionString
       - key: ADMIN_SECRET_KEY
         generateValue: true  # Render auto-generates a secure random value
+      - key: JWT_SECRET
+        generateValue: true
       - key: CORS_ALLOW_ORIGINS
         sync: false          # Comma-separated frontend origins allowed to call the API
       - key: RISK_FAIL_CLOSED
         value: "true"
       - key: SESSION_COOKIE_SECURE
         value: "true"
+
+databases:
+  - name: vector-pulse-postgres
+    plan: free

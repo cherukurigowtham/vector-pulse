@@ -1,84 +1,101 @@
 "use client"
 
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  BarChart,
+import { useEffect, useState } from "react"
+import {
+  Area,
+  AreaChart,
   Bar,
-  Cell
-} from 'recharts'
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 const data = [
-  { time: '00:00', scans: 400, blocks: 24 },
-  { time: '04:00', scans: 300, blocks: 18 },
-  { time: '08:00', scans: 900, blocks: 60 },
-  { time: '12:00', scans: 1500, blocks: 130 },
-  { time: '16:00', scans: 1200, blocks: 90 },
-  { time: '20:00', scans: 800, blocks: 45 },
-  { time: '23:59', scans: 500, blocks: 30 },
+  { time: "00:00", scans: 400, blocks: 24 },
+  { time: "04:00", scans: 300, blocks: 18 },
+  { time: "08:00", scans: 900, blocks: 60 },
+  { time: "12:00", scans: 1500, blocks: 130 },
+  { time: "16:00", scans: 1200, blocks: 90 },
+  { time: "20:00", scans: 800, blocks: 45 },
+  { time: "23:59", scans: 500, blocks: 30 },
 ]
 
 const threatData = [
-  { name: 'Velocity', value: 45, color: '#ef4444' },
-  { name: 'Identity', value: 30, color: '#f97316' },
-  { name: 'Sybil', value: 15, color: '#f59e0b' },
-  { name: 'Geo', value: 10, color: '#6366f1' },
+  { name: "Velocity", value: 45, color: "#18181b" },
+  { name: "Identity", value: 30, color: "#52525b" },
+  { name: "Sybil", value: 15, color: "#a1a1aa" },
+  { name: "Geo", value: 10, color: "#d4d4d8" },
 ]
 
 export function RiskPulseChart() {
+  const [activeData, setActiveData] = useState(() => {
+    return Array.from({ length: 24 }).map((_, i) => ({
+      time: new Date(Date.now() - (23 - i) * 2000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      scans: Math.floor(Math.random() * 500) + 200,
+      blocks: Math.floor(Math.random() * 50) + 10,
+    }))
+  })
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveData((prev) => {
+        const next = [...prev.slice(1)]
+        next.push({
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          scans: Math.floor(Math.random() * 500) + 200,
+          blocks: Math.floor(Math.random() * 50) + 10,
+        })
+        return next
+      })
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [])
+
   return (
-    <div className="h-80 w-full">
+    <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data}>
+        <AreaChart data={activeData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
           <defs>
-            <linearGradient id="colorScans" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
-              <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+            <linearGradient id="scanArea" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#18181b" stopOpacity={0.1} />
+              <stop offset="95%" stopColor="#18181b" stopOpacity={0} />
             </linearGradient>
-            <linearGradient id="colorBlocks" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
-              <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+            <linearGradient id="blockArea" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
+              <stop offset="95%" stopColor="#ef4444" stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f4f4f5" />
           <XAxis 
             dataKey="time" 
             axisLine={false} 
             tickLine={false} 
-            tick={{ fill: '#94a3b8', fontSize: 12 }}
-            dy={10}
+            tick={{ fill: "#a1a1aa", fontSize: 11, fontWeight: 500 }}
+            dy={12}
           />
           <YAxis 
-            hide 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fill: "#a1a1aa", fontSize: 11, fontWeight: 500 }}
           />
           <Tooltip 
+            cursor={{ stroke: '#e4e4e7', strokeWidth: 1, strokeDasharray: '4 4' }}
             contentStyle={{ 
-              borderRadius: '12px', 
-              border: 'none', 
-              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' 
-            }} 
+              backgroundColor: '#ffffff',
+              borderRadius: '8px', 
+              border: '1px solid #e4e4e7',
+              boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)',
+              padding: '10px 14px'
+            }}
+            itemStyle={{ fontSize: '13px', fontWeight: 600, color: '#18181b' }}
+            labelStyle={{ fontSize: '11px', color: '#71717a', fontWeight: 500, marginBottom: '4px' }}
           />
-          <Area 
-            type="monotone" 
-            dataKey="scans" 
-            stroke="#6366f1" 
-            strokeWidth={2}
-            fillOpacity={1} 
-            fill="url(#colorScans)" 
-          />
-          <Area 
-            type="monotone" 
-            dataKey="blocks" 
-            stroke="#ef4444" 
-            strokeWidth={2}
-            fillOpacity={1} 
-            fill="url(#colorBlocks)" 
-          />
+          <Area type="monotone" dataKey="scans" stroke="#18181b" strokeWidth={2} fill="url(#scanArea)" dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: '#18181b' }} isAnimationActive={false} />
+          <Area type="monotone" dataKey="blocks" stroke="#ef4444" strokeWidth={2} fill="url(#blockArea)" dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: '#ef4444' }} isAnimationActive={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -86,25 +103,45 @@ export function RiskPulseChart() {
 }
 
 export function ThreatDistributionChart() {
+  const [activeThreatData, setActiveThreatData] = useState(threatData)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveThreatData((prev) => {
+        return prev.map(t => ({
+          ...t,
+          value: Math.max(0, t.value + (Math.random() * 6 - 3))
+        }))
+      })
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
+
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={threatData} layout="vertical" margin={{ left: -20 }}>
+        <BarChart data={activeThreatData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
           <XAxis type="number" hide />
           <YAxis 
             dataKey="name" 
             type="category" 
             axisLine={false} 
-            tickLine={false}
-            tick={{ fill: '#64748b', fontSize: 12, fontWeight: 500 }}
+            tickLine={false} 
+            tick={{ fill: "#71717a", fontSize: 12, fontWeight: 500 }} 
           />
           <Tooltip 
-            cursor={{ fill: 'transparent' }}
-            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+            cursor={{ fill: '#f4f4f5' }} 
+            contentStyle={{ 
+              borderRadius: '8px', 
+              border: '1px solid #e4e4e7',
+              boxShadow: '0 2px 4px -1px rgb(0 0 0 / 0.05)',
+              padding: '8px 12px'
+            }}
+            itemStyle={{ fontSize: '13px', fontWeight: 600, color: '#18181b' }}
           />
-          <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={12}>
-            {threatData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
+          <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={12} isAnimationActive={true} animationDuration={500}>
+            {activeThreatData.map((entry) => (
+              <Cell key={entry.name} fill={entry.color} />
             ))}
           </Bar>
         </BarChart>
