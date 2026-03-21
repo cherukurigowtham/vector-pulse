@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI, Request
 from app.api.v1.risk import analysis as risk_analysis
 from app.api.v1.risk import forensics
@@ -9,11 +10,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.db.database import AUDIT_STORE
 from app.core.security import verify_jwt
+from app.services.discovery.consortium import ConsortiumRing
+from app.workers.audit_flusher import run_audit_flusher
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await AUDIT_STORE.init()
+    consortium_thread = ConsortiumRing.attach_listener()
+    flusher_task = asyncio.create_task(run_audit_flusher())
     yield
+    flusher_task.cancel()
+    try:
+        await flusher_task
+    except asyncio.CancelledError:
+        pass
+    if consortium_thread:
+        consortium_thread.stop()
     await AUDIT_STORE.close()
 
 app = FastAPI(

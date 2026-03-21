@@ -7,6 +7,7 @@ from app.models.dto.risk_context import RiskContext
 from app.core.config import RISK_CONFIG
 from app.core.redis import r
 from app.services.webhook_dispatcher import webhook_dispatcher
+from app.services.discovery.consortium import ConsortiumRing
 
 router = APIRouter(prefix="/risk", tags=["Risk Analysis"])
 
@@ -27,6 +28,22 @@ async def scan_order(
         merchant_key_hash=merchant["key_hash"]
     )
     
+    # [PHASE 8] 🌍 Global Immune System Pre-Check
+    v_ip = getattr(order, "ip_address", None)
+    v_device = getattr(order, "device_fingerprint", None)
+    v_email = getattr(order.customer, "email", None) if getattr(order, "customer", None) else None
+    
+    for v_type, v_hash in [("IP", v_ip), ("DEVICE", v_device), ("EMAIL", v_email)]:
+        if v_hash and r.get(f"vantix:immune_system:{v_type}:{v_hash}"):
+            return {
+                "risk_id": f"consortium_block_{str(v_hash)[:8]}",
+                "score": 99.0,
+                "decision": "FRAUD_CONFIRMED",
+                "reasons": [f"GLOBAL_CONSORTIUM_BLOCK({v_type})"],
+                "trust_score": 0.0,
+                "xai_impacts": {f"Global Threat Ring ({v_type})": 99.0}
+            }
+    
     # Run Orchestrated Analysis
     result = await engine.analyze(context, RISK_CONFIG)
     
@@ -35,6 +52,13 @@ async def scan_order(
     decision = getattr(result, "decision", "ALLOW_COD")
     
     if score >= 85.0 or decision in ["QUARANTINE_REQUIRED", "FRAUD_CONFIRMED", "FORCE_PREPAID"]:
+        # 1. Hive-Mind Broadcast (Phase 8)
+        if getattr(order, "ip_address", None):
+             background_tasks.add_task(ConsortiumRing.broadcast_threat, merchant["email"], "IP", order.ip_address, score)
+        if getattr(order, "device_fingerprint", None):
+             background_tasks.add_task(ConsortiumRing.broadcast_threat, merchant["email"], "DEVICE", order.device_fingerprint, score)
+
+        # 2. Autonomous Outbound Retaliation 
         payload = {
             "event": "risk.threshold.exceeded",
             "risk_id": getattr(result, "risk_id", "unknown"),

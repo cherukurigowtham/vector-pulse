@@ -89,11 +89,16 @@ class PostgresStore:
             await self.pool.close()
 
     async def insert_risk_audit(self, p: dict):
+        import json
+        from app.core.redis import r
+        r.xadd("vantix:stream:risk_audit", {"payload": json.dumps(p)})
+
+    async def bulk_insert_risk_audit(self, batch: list[dict]):
         async with self.pool.acquire() as conn:
-            await conn.execute("""
+            await conn.executemany("""
                 INSERT INTO risk_audit (risk_id, uid, email, team_id, risk_score, decision, shadow_mode, reasons, metrics, timestamp)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            """, p["risk_id"], p["uid"], p["email"], p.get("team_id"), p["risk_score"], p["decision"], p["shadow_mode"], p["reasons"], p["metrics"], p["timestamp"])
+            """, [(p["risk_id"], p["uid"], p["email"], p.get("team_id"), p["risk_score"], p["decision"], p["shadow_mode"], p["reasons"], p["metrics"], p["timestamp"]) for p in batch])
 
     async def update_outcome(self, risk_id: str, status: str, reason: str | None = None):
         async with self.pool.acquire() as conn:
@@ -256,11 +261,16 @@ class SQLiteStore:
             await db.commit()
 
     async def insert_risk_audit(self, p: dict):
+        import json
+        from app.core.redis import r
+        r.xadd("vantix:stream:risk_audit", {"payload": json.dumps(p)})
+
+    async def bulk_insert_risk_audit(self, batch: list[dict]):
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("""
+            await db.executemany("""
                 INSERT INTO risk_audit (risk_id, uid, email, team_id, risk_score, decision, shadow_mode, reasons, metrics, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (p["risk_id"], p["uid"], p["email"], p.get("team_id"), p["risk_score"], p["decision"], p["shadow_mode"], p["reasons"], p["metrics"], p["timestamp"]))
+            """, [(p["risk_id"], p["uid"], p["email"], p.get("team_id"), p["risk_score"], p["decision"], p["shadow_mode"], p["reasons"], p["metrics"], p["timestamp"]) for p in batch])
             await db.commit()
 
     async def update_outcome(self, risk_id: str, status: str, reason: str | None = None):
