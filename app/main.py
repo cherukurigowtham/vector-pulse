@@ -1,153 +1,111 @@
-import time
-import logging
-from uuid import uuid4
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException
+import asyncio
+import os
+import sentry_sdk
+from fastapi import FastAPI, Request
+from app.api.v1.risk import analysis as risk_analysis
+from app.api.v1.risk import forensics
+from app.api.v1.merchant import profile, team, reporting, billing
+from app.api.v1.security import auth, vault
+from app.api.v1.health import router as health_router
+from app.api.v1 import ops as ops_router
+from app.routers import public, merchant, stream
+from app.core.config import CORS_ALLOW_ORIGINS
+from app.core.logger import setup_logging
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import ENVIRONMENT, CORS_ALLOW_ORIGINS, DATABASE_URL, AUDIT_DB
+from contextlib import asynccontextmanager
 from app.db.database import AUDIT_STORE
-from app.core.helpers import _log_event, PRIMARY_ADMIN_EMAIL, ADMIN_EMAILS
-from app.routers import (
-    public, webhooks, risk, admin, admin_dashboard, merchant, 
-    behavioral, compliance, forensics
-)
+from app.core.security import verify_jwt
+from app.services.discovery.consortium import ConsortiumRing
+from app.workers.audit_flusher import run_audit_flusher
+from app.services.monitoring.alerter import alerter
+from app.services.monitoring.self_healing_service import self_healing_service
+
+# === Boot: Structured Logging ===
+setup_logging(service_name="vantix-api")
+
+# === Boot: Sentry Error Tracking ===
+_SENTRY_DSN = os.getenv("SENTRY_DSN", "")
+if _SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=_SENTRY_DSN,
+        traces_sample_rate=0.1,   # 10% of requests traced for performance
+        send_default_pii=False,   # GDPR: never send raw PII to Sentry
+    )
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
-    # Initialize DB
+async def lifespan(app: FastAPI):
     await AUDIT_STORE.init()
-    _log_event(
-        "startup_complete",
-        environment=ENVIRONMENT,
-        audit_backend=AUDIT_STORE.backend,
-        admin_count=len(ADMIN_EMAILS),
-    )
+    consortium_thread = ConsortiumRing.attach_listener()
+    flusher_task = asyncio.create_task(run_audit_flusher())
+    yield
+    flusher_task.cancel()
     try:
-        yield
-    finally:
-        await AUDIT_STORE.close()
-        _log_event("shutdown_complete", environment=ENVIRONMENT)
+        await flusher_task
+    except asyncio.CancelledError:
+        pass
+    if consortium_thread:
+        consortium_thread.stop()
+    await AUDIT_STORE.close()
 
 app = FastAPI(
-    title="Vantix RTO Shield API",
-    description="Real-time fraud detection for Indian e-commerce. Stop RTO losses instantly.",
-    version="1.0.0",
-    lifespan=lifespan,
+    title="Vantix RTO Shield - Google-Style Refactor",
+    version="2.0.0",
+    lifespan=lifespan
 )
 
-# CORS Middleware
+# Authentication Middleware (Populates request.state.user from JWT)
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    token = request.cookies.get("vp_token")
+    if token:
+        user = verify_jwt(token)
+        if user:
+            request.state.user = user
+    return await call_next(request)
+
+# === Sovereign Operator: Global Exception Bridge ===
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    # 1. Autonomous Triage: Attempt Self-Healing for known patterns
+    error_str = str(exc).upper()
+    healing_pattern = None
+    if "CACHE" in error_str or "REDIS" in error_str:
+        healing_pattern = "CACHE_PRESSURE"
+    elif "LATENCY" in error_str or "TIMEOUT" in error_str:
+        healing_pattern = "HIGH_LATENCY"
+    
+    if healing_pattern:
+        await self_healing_service.handle_anomaly(healing_pattern, {"error": str(exc)})
+    else:
+        # 2. Escalation: Dispatch critical alert to solo developer for unknown anomalies
+        await alerter.send_critical(
+            "UNKNOWN_SYSTEM_ANOMALY",
+            str(exc),
+            {"path": request.url.path, "method": request.method}
+        )
+    
+    # Professional fallback
+    raise exc
+
+# Professional CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ALLOW_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-API-Key", "X-Admin-Key"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Security & Logging Middleware
-@app.middleware("http")
-async def add_security_headers(request: Request, call_next):
-    request_id = request.headers.get("X-Request-ID") or uuid4().hex
-    request.state.request_id = request_id
-    start = time.perf_counter()
-    response = await call_next(request)
-    duration_ms = round((time.perf_counter() - start) * 1000, 2)
-    response.headers["X-Request-ID"] = request_id
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Referrer-Policy"] = "same-origin"
-    response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
-    _log_event("http_request", request_id=request_id, path=request.url.path, status_code=response.status_code, duration_ms=duration_ms)
-    return response
-
-from fastapi.responses import JSONResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from fastapi.exceptions import RequestValidationError
-
-# Global Error Handlers
-@app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "status": "error",
-            "code": exc.status_code,
-            "message": str(exc.detail),
-            "request_id": getattr(request.state, "request_id", "unknown")
-        },
-    )
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    return JSONResponse(
-        status_code=422,
-        content={
-            "status": "error",
-            "code": 422,
-            "message": "Validation Error",
-            "details": exc.errors(),
-            "request_id": getattr(request.state, "request_id", "unknown")
-        },
-    )
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    request_id = getattr(request.state, "request_id", "unknown")
-    logging.error(f"Unhandled Exception [ID: {request_id}]: {str(exc)}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={
-            "status": "fail",
-            "code": 500,
-            "message": "An internal analysis service error occurred.",
-            "request_id": request_id
-        },
-    )
-
-from app.core.edge_intelligence import EdgeIntelligenceMiddleware
-app.add_middleware(EdgeIntelligenceMiddleware)
-
-# Include Routers
-app.include_router(public.router)
-app.include_router(webhooks.router)
-app.include_router(risk.router)
-app.include_router(admin.router)
-app.include_router(admin_dashboard.router)
-app.include_router(merchant.router)
-app.include_router(behavioral.router)
-app.include_router(compliance.router)
-app.include_router(forensics.router)
-
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
-import os
-
-# Serve Landing Page Static Files
-landing_path = os.path.join(os.path.dirname(__file__), "..", "landing")
-app.mount("/static", StaticFiles(directory=landing_path), name="static")
-
-@app.get("/", include_in_schema=False)
-async def serve_index():
-    return FileResponse(os.path.join(landing_path, "index.html"))
-
-@app.get("/merchant", include_in_schema=False)
-async def serve_merchant():
-    return FileResponse(os.path.join(landing_path, "merchant.html"))
-
-@app.get("/admin-dashboard", include_in_schema=False)
-async def serve_admin():
-    return FileResponse(os.path.join(landing_path, "admin.html"))
-
-@app.get("/health")
-async def health():
-    db_ok = await AUDIT_STORE.healthcheck()
-    return {"status": "ok", "db": "connected" if db_ok else "error"}
-
-@app.get("/metrics")
-async def metrics():
-    # Expose global stats for monitoring
-    keys = ["stat:velocity", "stat:sybil", "stat:price", "stat:clusters", "stat:geoip", "total_blocks"]
-    from app.core.redis import r
-    values = await r.mget(keys)
-    metrics_data = {k: int(v or 0) for k, v in zip(keys, values)}
-    return metrics_data
+app.include_router(public.router, prefix="/api/v1")
+app.include_router(merchant.router, prefix="/api/v1")
+app.include_router(stream.router, prefix="/api/v1")
+app.include_router(risk_analysis.router, prefix="/api/v1")
+app.include_router(forensics.router, prefix="/api/v1")
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(vault.router, prefix="/api/v1")
+app.include_router(profile.router, prefix="/api/v1")
+app.include_router(team.router, prefix="/api/v1")
+app.include_router(reporting.router, prefix="/api/v1")
+app.include_router(billing.router, prefix="/api/v1")
+app.include_router(ops_router.router, prefix="/api/v1")
+app.include_router(health_router)

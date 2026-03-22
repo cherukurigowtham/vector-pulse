@@ -1,5 +1,4 @@
 import os
-from typing import Any
 
 def _env_int(name: str, default: int) -> int:
     raw = os.getenv(name)
@@ -24,6 +23,8 @@ REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 REDIS_SSL = os.getenv("REDIS_SSL", "false").lower() == "true"
+REDIS_PREFIX = os.getenv("REDIS_PREFIX", "vx:dev").strip()
+REDIS_KEY_VERSION = "v1"
 
 CORS_ALLOW_ORIGINS = [
     origin.strip() 
@@ -34,6 +35,7 @@ CORS_ALLOW_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://portal-three-drab.vercel.app"
 ]
 
 RATE_LIMITS = {
@@ -112,4 +114,15 @@ RISK_CONFIG_BOUNDS = {
 ADMIN_KEY = os.getenv("ADMIN_SECRET_KEY", "local-dev-admin-key")
 SESSION_COOKIE_SECURE = ENVIRONMENT == "production"
 RISK_FAIL_CLOSED = _env_bool("RISK_FAIL_CLOSED", False)  # Default to fail-open (safer for business)
-GLOBAL_PULSE_SALT = os.getenv("GLOBAL_PULSE_SALT", "vector-pulse-collective-defense-2024")
+VANTIX_SALT = os.getenv("VANTIX_SALT", "vantix-sovereign-collective-defense-2026")
+
+# JWT Configuration
+JWT_SECRET = os.getenv("JWT_SECRET", "vantix-dev-secret-keep-it-safe")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_EXPIRATION_HOURS = 24
+
+# AI Forensics Configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+# Platform Governance
+EMERGENCY_KILL_SWITCH = _env_bool("EMERGENCY_KILL_SWITCH", False)

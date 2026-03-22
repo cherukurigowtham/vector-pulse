@@ -1,6 +1,5 @@
 import logging
 from app.core.redis import r
-from app.core.config import RISK_CONFIG
 
 async def process_fraud_feedback(order_hash: str, merchant_email: str):
     """

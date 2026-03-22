@@ -1,11 +1,6 @@
-import hmac
-import hashlib
 import json
 import logging
 from fastapi import APIRouter, Request, Header, HTTPException, BackgroundTasks
-from app.models import Order
-from app.routers.risk import check_order
-from app.core.security import require_api_key
 
 router = APIRouter(tags=["webhooks"])
 
@@ -29,9 +24,9 @@ async def shopify_order_webhook(
     try:
         data = json.loads(body)
         
-        # Transform Shopify format to Vector-Pulse Order format
+        # Transform Shopify format to Vantix Order format
         # This is the "Strong Logic" part - mapping platform-specific fields
-        order_payload = {
+        {
             "uid": str(data.get("id")),
             "amt": float(data.get("total_price", 0)),
             "addr": f"{data.get('shipping_address', {}).get('address1', '')} {data.get('shipping_address', {}).get('zip', '')}",

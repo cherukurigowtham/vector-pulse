@@ -5,10 +5,10 @@ import hashlib
 import time
 import secrets
 from typing import Any
-from fastapi import Request, Response, HTTPException
-from app.core.redis import r
+from fastapi import HTTPException
+from app.core.redis import r, rk
 from app.db.database import AUDIT_STORE
-from app.core.config import RISK_CONFIG, RISK_CONFIG_BOUNDS, RISK_CONFIG_TYPES, ADMIN_KEY, SESSION_COOKIE_SECURE
+from app.core.config import RISK_CONFIG, RISK_CONFIG_BOUNDS, RISK_CONFIG_TYPES
 
 ADMIN_EMAILS = [
     email.strip().lower()
@@ -60,6 +60,14 @@ def _hash_key(api_key: str, salt: str) -> str:
     key = hashlib.pbkdf2_hmac("sha256", api_key.encode("utf-8"), salt.encode("utf-8"), 10000)
     return key.hex()
 
+def _is_disposable_email(email: str) -> bool:
+    disposable_domains = {
+        "mailinator.com", "guerrillamail.com", "yopmail.com", "temp-mail.org",
+        "tempmail.com", "10minutemail.com", "sharklasers.com"
+    }
+    domain = email.split("@")[-1].lower()
+    return domain in disposable_domains
+
 def _key_metadata(raw_key: str) -> dict:
     salt = secrets.token_hex(16)
     return {
@@ -97,7 +105,7 @@ async def _resolve_risk_config(key_data: dict) -> dict:
     # 2. Apply Neural Biases (Learned Behavior)
     if email:
         try:
-            biases = await r.hgetall(f"neural:bias:{email}")
+            biases = await r.hgetall(rk(f"neural:bias:{email}"))
             if biases:
                 for name, bias_val in biases.items():
                     if name in config:
@@ -136,14 +144,14 @@ def _validate_risk_value(name: str, value: Any) -> Any:
     return value
 
 async def _find_key_hash_by_email(email: str) -> str | None:
-    key_hash = await r.get(f"emailkey:{email}")
+    key_hash = await r.get(rk(f"emailkey:{email}"))
     if key_hash:
         return key_hash
-    legacy_hashes = await r.smembers("admin:all_keys")
+    legacy_hashes = await r.smembers(rk("admin:all_keys"))
     for candidate in legacy_hashes:
-        profile = await r.hgetall(f"apikey:{candidate}")
+        profile = await r.hgetall(rk(f"apikey:{candidate}"))
         if profile.get("email") == email:
-            await r.set(f"emailkey:{email}", candidate)
+            await r.set(rk(f"emailkey:{email}"), candidate)
             return candidate
     return None
 

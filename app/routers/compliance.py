@@ -1,7 +1,6 @@
 import time
-import json
 import secrets
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from app.core.security import require_api_key
 from app.db.database import AUDIT_STORE
 
@@ -22,7 +21,8 @@ async def get_compliance_report(
     if not end_timestamp:
         end_timestamp = time.time()
         
-    logs = await AUDIT_STORE.fetch_compliance_logs(merchant_email, start_timestamp, end_timestamp)
+    team_id = key_data.get("team_id") or merchant_email
+    logs = await AUDIT_STORE.fetch_compliance_logs(team_id, start_timestamp, end_timestamp)
     
     # Cryptographic anchoring (simulated signature for audit integrity)
     report_id = f"VP-AUDIT-{secrets.token_hex(4).upper()}"

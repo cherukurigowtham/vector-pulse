@@ -659,7 +659,7 @@
       </div>
       <div class="nav-actions" id="auth-nav-container">
         <button onclick="openModal('login')" class="btn btn-secondary">Log in</button>
-        <button onclick="openModal('signup')" class="btn btn-primary">Get Access</button>
+        <button onclick="openModal('signup')" class="btn btn-primary">Sign Up</button>
       </div>
       <button class="hamburger" id="hamburgerBtn" aria-label="Open menu" onclick="toggleDrawer()">
         <span></span><span></span><span></span>
@@ -830,10 +830,43 @@
         <h3 id="modalTitle" style="margin-bottom: 12px;">Create your account</h3>
         <p id="authDesc" style="color: var(--text-muted); margin-bottom: 24px;">Get a test key and open your Signal Hub.</p>
         <form id="authForm" onsubmit="handleAuth(event)">
+          <!-- Signup Fields -->
+          <div id="signupFields">
+            <input type="text" id="fullNameInput" class="field" placeholder="Full Name" />
+            <input type="text" id="companyInput" class="field" placeholder="Company Name" />
+            <select id="categoryInput" class="field">
+              <option value="" disabled selected>Merchant Category</option>
+              <option value="retail">Retail</option>
+              <option value="electronics">Electronics</option>
+              <option value="fashion">Fashion</option>
+              <option value="digital_goods">Digital Goods</option>
+              <option value="other">Other</option>
+            </select>
+            <select id="volumeInput" class="field">
+              <option value="" disabled selected>Expected Monthly Volume</option>
+              <option value="0-100">0 - 100 orders</option>
+              <option value="100-1k">100 - 1,000 orders</option>
+              <option value="1k-10k">1,000 - 10,000 orders</option>
+              <option value="10k+">10,000+ orders</option>
+            </select>
+          </div>
+          
+          <!-- Shared / Login Fields -->
           <input type="email" id="emailInput" class="field" placeholder="you@company.com" required />
-          <input type="password" id="passwordInput" class="field" placeholder="Password" required minlength="6" />
+          <input type="password" id="passwordInput" class="field" placeholder="Password" minlength="6" />
+          
+          <!-- Reset Token Field -->
+          <input type="text" id="tokenInput" class="field" placeholder="Recovery Token" style="display:none;" />
+
+          <div id="forgotPasswordLink" style="text-align: right; margin-bottom: 16px;">
+            <a href="#" onclick="switchTab('forgot')" style="font-size: 13px; color: var(--accent); text-decoration: none;">Forgot Password?</a>
+          </div>
+
           <button type="submit" id="authSubmitBtn" class="btn btn-primary" style="width:100%; margin-top: 10px;">Create account</button>
         </form>
+        <div id="backToLogin" style="text-align: center; margin-top: 24px; display: none;">
+          <a href="#" onclick="switchTab('login')" style="font-size: 14px; color: var(--text-muted); text-decoration: none;">&larr; Back to Login</a>
+        </div>
         <div class="error" id="modal-error"></div>
       </div>
 
@@ -889,6 +922,7 @@
   </footer>
 
   <script>
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://vector-pulse-api.onrender.com';
     // Original Functional Logic Restored & Integrated
     const modal = document.getElementById("keyModal");
     let currentMode = "signup";
@@ -909,28 +943,51 @@
 
     function switchTab(mode) {
       currentMode = mode;
-      const signup = document.getElementById("tabSignup");
-      const login = document.getElementById("tabLogin");
+      const tabs = [document.getElementById("tabSignup"), document.getElementById("tabLogin")];
       const title = document.getElementById("modalTitle");
       const desc = document.getElementById("authDesc");
       const submit = document.getElementById("authSubmitBtn");
       const err = document.getElementById("modal-error");
-
-      signup.style.background = mode === "signup" ? "var(--text)" : "var(--card)";
-      signup.style.color = mode === "signup" ? "var(--bg)" : "var(--text)";
-      login.style.background = mode === "login" ? "var(--text)" : "var(--card)";
-      login.style.color = mode === "login" ? "var(--bg)" : "var(--text)";
       
+      const signupFields = document.getElementById("signupFields");
+      const passwordInput = document.getElementById("passwordInput");
+      const tokenInput = document.getElementById("tokenInput");
+      const forgotLink = document.getElementById("forgotPasswordLink");
+      const backLink = document.getElementById("backToLogin");
+      const tabContainer = document.querySelector("#authFlow > div:first-child");
+
       err.style.display = "none";
+      signupFields.style.display = mode === "signup" ? "block" : "none";
+      passwordInput.style.display = mode === "forgot" ? "none" : "block";
+      tokenInput.style.display = mode === "reset" ? "block" : "none";
+      forgotLink.style.display = mode === "login" ? "block" : "none";
+      backLink.style.display = (mode === "forgot" || mode === "reset") ? "block" : "none";
+      tabContainer.style.display = (mode === "forgot" || mode === "reset") ? "none" : "flex";
+
+      tabs.forEach(tab => {
+        if (mode === "signup" || mode === "login") {
+            const isMatch = (mode === "signup" && tab.id === "tabSignup") || (mode === "login" && tab.id === "tabLogin");
+            tab.style.background = isMatch ? "var(--text)" : "var(--card)";
+            tab.style.color = isMatch ? "var(--bg)" : "var(--text)";
+        }
+      });
 
       if (mode === "signup") {
         title.textContent = "Create your account";
-        desc.textContent = "Get a test key and open your Signal Hub.";
-        submit.textContent = "Create account";
-      } else {
-        title.textContent = "Log back in";
-        desc.textContent = "View your key, usage, and account details.";
-        submit.textContent = "Log in";
+        desc.textContent = "Connect to our high-fidelity fraud network.";
+        submit.textContent = "Join the Consortium";
+      } else if (mode === "login") {
+        title.textContent = "Welcome back";
+        desc.textContent = "Access your Signal Hub and risk telemetry.";
+        submit.textContent = "Sign In";
+      } else if (mode === "forgot") {
+        title.textContent = "Recover Account";
+        desc.textContent = "Enter your email to receive a recovery token.";
+        submit.textContent = "Send Token";
+      } else if (mode === "reset") {
+        title.textContent = "Reset Password";
+        desc.textContent = "Set a new secure password for your identity.";
+        submit.textContent = "Update Password";
       }
 
       document.getElementById("authFlow").style.display = "block";
@@ -940,7 +997,7 @@
     function setLoggedOutNav() {
       document.getElementById("auth-nav-container").innerHTML = `
         <button onclick="openModal('login')" class="btn btn-secondary">Log in</button>
-        <button onclick="openModal('signup')" class="btn btn-primary">Get Access</button>
+        <button onclick="openModal('signup')" class="btn btn-primary">Sign Up</button>
       `;
     }
 
@@ -957,12 +1014,38 @@
       event.preventDefault();
       const email = document.getElementById("emailInput").value;
       const password = document.getElementById("passwordInput").value;
+      
       const btn = document.getElementById("authSubmitBtn");
       const err = document.getElementById("modal-error");
-      const endpoint = currentMode === "signup" ? "/v1/auth/signup" : "/v1/auth/login";
+      
+      let endpoint = `${API_BASE}/api/v1/security/auth/signup`;
+      let payload = { email, password };
+
+      if (currentMode === "login") {
+        endpoint = `${API_BASE}/api/v1/security/auth/login`;
+      } else if (currentMode === "forgot") {
+        endpoint = `${API_BASE}/api/v1/security/auth/forgot-password`;
+        payload = { email };
+      } else if (currentMode === "reset") {
+        endpoint = `${API_BASE}/api/v1/security/auth/reset-password`;
+        payload = { 
+            token: document.getElementById("tokenInput").value,
+            new_password: password
+        };
+      } else if (currentMode === "signup") {
+        payload = {
+            email,
+            password,
+            full_name: document.getElementById("fullNameInput").value,
+            company_name: document.getElementById("companyInput").value,
+            merchant_category: document.getElementById("categoryInput").value,
+            expected_monthly_volume: document.getElementById("volumeInput").value
+        };
+      }
 
       btn.disabled = true;
-      btn.textContent = currentMode === "signup" ? "Creating..." : "Logging in...";
+      const originalText = btn.textContent;
+      btn.textContent = "Processing...";
       err.style.display = "none";
 
       try {
@@ -970,22 +1053,31 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify(payload)
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || "Authentication failed");
-        await checkSession(true);
+
+        if (currentMode === "forgot") {
+            alert("Recovery token sent! (Debug: " + data.debug_token + ")");
+            switchTab("reset");
+        } else if (currentMode === "reset") {
+            alert("Password updated successfully!");
+            switchTab("login");
+        } else {
+            await checkSession(true);
+        }
       } catch (error) {
         err.textContent = error.message;
         err.style.display = "block";
       } finally {
         btn.disabled = false;
-        btn.textContent = currentMode === "signup" ? "Create account" : "Log in";
+        btn.textContent = originalText;
       }
     }
 
     async function handleLogout() {
-      await fetch("/v1/auth/logout", { method: "POST", credentials: "same-origin" });
+      await fetch(`${API_BASE}/api/v1/security/auth/logout`, { method: "POST", credentials: "same-origin" });
       setLoggedOutNav();
       document.getElementById("authFlow").style.display = "block";
       document.getElementById("dashboardFlow").style.display = "none";
@@ -994,7 +1086,7 @@
 
     async function checkSession(openHub = false) {
       try {
-        const response = await fetch("/v1/auth/me", { credentials: "same-origin" });
+        const response = await fetch(`${API_BASE}/api/v1/security/auth/me`, { credentials: "same-origin" });
         if (!response.ok) { setLoggedOutNav(); return false; }
         const data = await response.json();
         setLoggedInNav(data.is_admin);

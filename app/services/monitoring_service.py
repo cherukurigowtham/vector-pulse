@@ -1,5 +1,4 @@
 import logging
-import time
 from app.core.redis import r
 
 async def track_decision_bias(merchant_email: str, decision: str, metadata: dict):
@@ -30,7 +29,6 @@ async def check_model_drift(merchant_email: str):
     Detects if neural weight adjustments are moving too fast (instability).
     """
     try:
-        drift_key = f"drift:weights:{merchant_email}"
         # We store hashes of weights periodically
         # If the weights shift significantly in a short period, we flag it.
         # This is a simplified implementation for the professional tier.

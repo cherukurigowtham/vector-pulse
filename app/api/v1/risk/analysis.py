@@ -1,0 +1,83 @@
+from fastapi import APIRouter, Depends, BackgroundTasks
+from app.models import Order
+from app.core.security import require_api_key
+from app.services.risk.factory import get_risk_engine
+from app.services.risk.neural_orchestrator import NeuralOrchestrator
+from app.models.dto.risk_context import RiskContext
+from app.core.config import RISK_CONFIG
+from app.core.redis import r
+from app.services.webhook_dispatcher import webhook_dispatcher
+from app.services.discovery.consortium import ConsortiumRing
+from app.core.rate_limiter import rate_limit
+
+router = APIRouter(prefix="/risk", tags=["Risk Analysis"])
+
+@router.post("/scan", summary="Perform real-time fraud analysis on an order.")
+async def scan_order(
+    order: Order, 
+    background_tasks: BackgroundTasks,
+    merchant: dict = Depends(require_api_key),
+    engine: NeuralOrchestrator = Depends(get_risk_engine),
+    _rate: None = rate_limit(key="risk_scan", limit=100, window=60),
+):
+    """
+    Entry point for the modular Risk Engine.
+    Leverages parallel pillar execution and cognitive aggregation.
+    """
+    context = RiskContext(
+        order=order,
+        merchant_email=merchant["email"],
+        merchant_key_hash=merchant["key_hash"]
+    )
+    
+    # [PHASE 8] 🌍 Global Immune System Pre-Check (Zero-Trust Shadows)
+    v_ip = order.ip
+    v_device = order.device_hash
+    v_email = order.email
+    
+    for v_type, v_hash in [("IP", v_ip), ("DEVICE", v_device), ("EMAIL", v_email)]:
+        if v_hash and r.get(f"vantix:immune_system:{v_type}:{v_hash}"):
+            return {
+                "risk_id": f"consortium_block_{str(v_hash)[:8]}",
+                "score": 99.0,
+                "decision": "FRAUD_CONFIRMED",
+                "reasons": [f"GLOBAL_CONSORTIUM_BLOCK({v_type})"],
+                "trust_score": 0.0,
+                "xai_impacts": {f"Global Threat Ring ({v_type})": 99.0}
+            }
+    
+    # Run Orchestrated Analysis
+    result = await engine.analyze(context, RISK_CONFIG)
+    
+    # Autonomous Outbound Retaliation 
+    score = getattr(result, "score", 0.0)
+    decision = getattr(result, "decision", "ALLOW_COD")
+    
+    if score >= 85.0 or decision in ["QUARANTINE_REQUIRED", "FRAUD_CONFIRMED", "FORCE_PREPAID"]:
+        # 1. Hive-Mind Broadcast (Phase 8) - Already tokenized by Order model
+        if order.ip:
+             background_tasks.add_task(ConsortiumRing.broadcast_threat, merchant["email"], "IP", order.ip, score)
+        if order.device_hash:
+             background_tasks.add_task(ConsortiumRing.broadcast_threat, merchant["email"], "DEVICE", order.device_hash, score)
+
+        # 2. Autonomous Outbound Retaliation 
+        payload = {
+            "event": "risk.threshold.exceeded",
+            "risk_id": getattr(result, "risk_id", "unknown"),
+            "order_uid": order.uid,
+            "score": score,
+            "decision": decision,
+            "reasons": getattr(result, "reasons", [])
+        }
+        background_tasks.add_task(_evaluate_and_dispatch_webhook, merchant["email"], payload)
+    
+    return result
+
+async def _evaluate_and_dispatch_webhook(email: str, payload: dict):
+    """Securely resolves webhook targets entirely outside the main user request event loop."""
+    user_data = await r.hgetall(f"user:{email}")
+    webhook_url = user_data.get("alert_webhook_url")
+    secret = user_data.get("webhook_secret")
+    
+    if webhook_url:
+        await webhook_dispatcher.dispatch_retaliation_alert(webhook_url, payload, secret)

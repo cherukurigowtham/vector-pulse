@@ -1,6 +1,6 @@
 import hashlib
 import logging
-from app.core.redis import r
+from app.core.redis import r, rk
 from app.core.config import GLOBAL_PULSE_SALT
 
 def _p_hash(val: str) -> str:
@@ -15,7 +15,7 @@ async def get_global_reputation(attribute_type: str, hashed_value: str) -> float
     0.5 = Neutral (New or low signal)
     """
     try:
-        score = await r.get(f"global:reputation:{attribute_type}:{hashed_value}")
+        score = await r.get(rk(f"global:reputation:{attribute_type}:{hashed_value}"))
         return float(score) if score is not None else 0.5
     except:
         return 0.5
@@ -39,7 +39,7 @@ async def analyze_subgraph(uids: list[str]) -> dict:
         
         # Simulate a node reputation lookup
         # In a real system, this would be a persistent node_store
-        trust = await r.get(f"graph:node:trust:{uid_pair}")
+        trust = await r.get(rk(f"graph:node:trust:{uid_pair}"))
         val = float(trust) if trust else 0.5
         total_reputation += val
         if val < 0.3: fraud_signals += 1
@@ -66,10 +66,10 @@ async def link_identity(uid: str, email: str | None, phone: str | None, address:
         email_hash = _p_hash(email or "noemail")
         phone_hash = _p_hash(phone or "nophone")
         
-        addr_key = f"graph:attr:addr:{addr_hash}"
-        ip_key = f"graph:attr:ip:{ip}"
-        email_key = f"graph:attr:email:{email_hash}"
-        phone_key = f"graph:attr:phone:{phone_hash}"
+        addr_key = rk(f"graph:attr:addr:{addr_hash}")
+        ip_key = rk(f"graph:attr:ip:{ip}")
+        email_key = rk(f"graph:attr:email:{email_hash}")
+        phone_key = rk(f"graph:attr:phone:{phone_hash}")
         
         # 2. Link attributes to the UID within the merchant's context
         async with r.pipeline() as pipe:

@@ -1,105 +1,71 @@
-# Vector-Pulse: High-Concurrency Fraud Detection Engine
+# Vantix
 
-A real-time anomaly detection system built with **Rust** and **Python**, leveraging **Redis** as a feature store. This project demonstrates high-performance systems engineering applied to financial security.
+Production-ready fraud intelligence platform with:
+- Go backend API
+- Next.js frontend portal
+- PostgreSQL (system of record)
+- Redis (high-speed counters and usage telemetry)
 
-## 🚀 The Architecture
+## Architecture
 
+Backend follows a layered, interface-driven design:
+- `handler` layer: HTTP transport concerns only
+- `service` layer: business logic and orchestration
+- `repository` layer: Postgres data access
 
-* **Compute Engine (Rust)**: High-performance statistical analysis ($Z$-Score and Velocity math) compiled as a Python extension using `PyO3`.
-* **Orchestration (Python)**: Real-time stream processing and decision-making logic.
-* **Feature Store (Redis)**: Low-latency persistence for user reputations, sliding windows, and blacklists.
-* **Infrastructure (Docker)**: Containerized microservices orchestrated via Docker Compose.
+This keeps core logic testable and enables storage/runtime swaps without handler rewrites.
 
-## 📊 Detection Logic
-The system evaluates transactions using **Dynamic Thresholding**:
-1.  **Statistical Outliers**: Calculates the Moving Average and Standard Deviation ($\sigma$) to determine the $Z$-Score.
-    $$Z = \frac{|x - \mu|}{\sigma}$$
-2.  **Temporal Velocity**: Detects bot-like behavior by measuring the time-delta between incoming requests.
-3.  **Salted Hashing**: API keys are hashed using PBKDF2 with unique salts, protecting against rainbow table attacks.
+## Key Backend Endpoints
 
-## 🛠️ Tech Stack
-* **Language**: Rust (Performance), Python (Logic)
-* **Database**: Redis
-* **Tooling**: Docker, Maturin, PyO3
+- `POST /api/v1/security/auth/signup`
+- `POST /api/v1/security/auth/login`
+- `GET /api/v1/security/auth/me`
+- `POST /api/v1/security/auth/logout`
+- `POST /api/v1/risk/scan`
+- `GET /api/v1/merchant/reporting/summary`
+- `GET /api/v1/merchant/payments/history`
+- `POST /api/v1/merchant/payments/orders`
+- `POST /api/v1/merchant/payments/verify`
+- `GET /api/v1/health`
 
-## 🏗️ Local Deployment
+## Performance Choices
+
+- Deterministic risk scoring (no random hot path) for predictable latency.
+- Connection-pooled Postgres access with schema bootstrap at startup.
+- Redis pipeline usage for low-latency counter updates.
+- Short-lived in-memory summary cache to reduce repeated dashboard query load.
+- Context timeouts on DB-bound handlers to cap tail latency.
+
+## Local Run
+
+### 1) Start dependencies
+
+Run Postgres and Redis locally (or use managed services), then configure `.env`.
+
+### 2) Backend
+
 ```bash
-# Copy the example environment and adjust values if needed
 cp .env.example .env
-
-# Build and launch the cluster (API + Redis + Postgres audit store)
-docker-compose up --build
-
-# Monitor live Redis keys
-docker exec -it [redis-container-id] redis-cli KEYS *
+go run ./cmd/server
 ```
 
-The local Docker stack now starts:
-- Redis for live fraud state
-- Postgres for audit persistence
-- the API wired to both services
+### 3) Frontend
 
-That gives local behavior much closer to production than the old Redis-only setup.
-
-## 🧪 Local Checks
 ```bash
-# Run the automated backend regression suite
-python3 -m unittest discover -s tests -p 'test_*.py'
-
-# Run the demo client against a local API
-export VECTOR_PULSE_API_KEY=vp_your_key_here
-python3 scripts/demo_client.py
+cd portal
+npm ci
+npm run dev
 ```
 
-## ⚙️ Runtime Tuning
+Set frontend API target:
+
 ```bash
-# Examples: tune fraud thresholds without editing code
-export RISK_DECISION_THRESHOLD=45
-export RISK_VELOCITY_MAX_ORDERS=4
-export RISK_WEIGHT_SYBIL=30
-export RISK_SAVINGS_PER_BLOCK_INR=90
-export RISK_FAIL_CLOSED=true # Set to true to block orders if risk analysis fails/times out
+export NEXT_PUBLIC_API_BASE=http://localhost:8000
 ```
 
-## 🗄️ Audit Storage
+## Build Validation
+
 ```bash
-# Default: SQLite audit log in audit_log.db
-
-# Optional: use Postgres for audit persistence in multi-worker production
-export DATABASE_URL=postgresql://user:password@host:5432/vector_pulse
-```
-
-When `DATABASE_URL` is set, `risk_audit` and `risk_profile_audit` use Postgres. Without it, the app falls back to SQLite.
-
-## 🚢 Production Environment
-```bash
-export ADMIN_SECRET_KEY=replace_me
-export ADMIN_EMAILS=admin1@example.com,admin2@example.com
-export SESSION_COOKIE_SECURE=true
-export CORS_ALLOW_ORIGINS=https://your-admin.example.com,https://your-app.example.com
-export REDIS_HOST=your-redis-host
-export REDIS_PORT=6379
-export REDIS_PASSWORD=your-redis-password
-export REDIS_SSL=true
-export DATABASE_URL=postgresql://user:password@host:5432/vector_pulse
-export PILOT_REQUEST_WEBHOOK_URL=https://hooks.example.com/vector-pulse-leads
-```
-
-Recommended production shape:
-- Redis for live fraud state
-- Postgres for audit persistence
-- explicit `CORS_ALLOW_ORIGINS`
-- generated or managed `ADMIN_SECRET_KEY`
-- explicit `ADMIN_EMAILS`
-- secure session cookies in production
-- optional `PILOT_REQUEST_WEBHOOK_URL` for new lead notifications
-
-The `/health` endpoint now reports both Redis and audit-backend status, including whether the audit layer is using `sqlite` or `postgres`. The `/readyz` endpoint is stricter and returns `503` if Redis or the audit backend is unavailable.
-
-## 🛡️ Utility Scripts
-```bash
-# Flush Redis only when you confirm the action and provide the system secret
-export VECTOR_PULSE_RESET_CONFIRM=DELETE_ALL_DATA
-export VECTOR_PULSE_ADMIN_KEY=your_admin_secret_key # Must match ADMIN_SECRET_KEY
-python3 scripts/admin_reset.py
+GOCACHE=/tmp/go-build go test ./...
+cd portal && npm run build
 ```

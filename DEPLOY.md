@@ -1,104 +1,68 @@
-# 🚀 Vector-Pulse: Zero-Cost Deployment Guide
+# Deployment Guide
 
-Follow these steps in order. Total time: ~30 minutes. Total cost: ₹0.
+Stack:
+- Backend: Go (Render)
+- Frontend: Next.js (Vercel)
+- Database: PostgreSQL (Render managed database)
+- Cache: Redis (Upstash)
 
----
+## 1) Provision Redis
 
-## Step 1 — Redis (Upstash Free Tier)
+Create a free Upstash Redis instance and keep:
+- `REDIS_HOST`
+- `REDIS_PORT=6379`
+- `REDIS_PASSWORD`
+- `REDIS_SSL=true`
 
-1. Go to **[upstash.com](https://upstash.com)** → Create account (free, no card)
-2. Click **Create Database** → Choose region closest to you (e.g., `ap-southeast-1` for India)
-3. Copy these values from the dashboard:
-   - `REDIS_HOST` (looks like `xxxx.upstash.io`)
-   - `REDIS_PASSWORD`
-   - Keep `REDIS_PORT` as `6379` and `REDIS_SSL` as `true`
+## 2) Deploy Backend on Render
 
----
+This repo contains `render.yaml` configured for Go runtime and managed Postgres.
 
-## Step 2 — Push Code to GitHub
+Set/confirm environment variables:
+- `REDIS_HOST`
+- `REDIS_PORT`
+- `REDIS_PASSWORD`
+- `REDIS_SSL`
+- `CORS_ALLOW_ORIGINS` (your Vercel domain)
+- `JWT_SECRET` (generated)
+- `ADMIN_SECRET_KEY` (generated)
 
-```bash
-cd /Users/gowthamcherukuri/Desktop/vector_pulse
-git init
-git add .
-git commit -m "feat: initial Vector-Pulse launch"
-# Create a new repo on GitHub, then:
-git remote add origin https://github.com/YOUR_USERNAME/vector-pulse.git
-git push -u origin main
-```
+The API base URL will look like:
+- `https://vector-pulse-api.onrender.com`
 
----
+## 3) Deploy Frontend on Vercel
 
-## Step 3 — Deploy API on Render (Free)
+Import this repository and set Root Directory to `portal`.
 
-1. Go to **[render.com](https://render.com)** → Sign up with GitHub
-2. Click **New** → **Web Service** → Connect your `vector-pulse` repo
-3. Render auto-detects `render.yaml`. Confirm the settings.
-4. Under **Environment Variables**, add:
-   | Key | Value |
-   |-----|-------|
-   | `REDIS_HOST` | your Upstash host |
-   | `REDIS_PASSWORD` | your Upstash password |
-   | `REDIS_PORT` | `6379` |
-   | `REDIS_SSL` | `true` |
-   | `ADMIN_SECRET_KEY` | pick a strong secret (keep this private!) |
-   | `RISK_FAIL_CLOSED` | `true` (recommended for safety) |
-   | `SESSION_COOKIE_SECURE` | `true` |
-5. Click **Deploy**. Wait ~5 min for the Rust build.
-6. Your API lives at: `https://vector-pulse-api.onrender.com`
+Set env var:
+- `NEXT_PUBLIC_API_BASE=https://vector-pulse-api.onrender.com`
 
----
+Build command:
+- `npm run build`
 
-## Step 4 — Get Paid! (Razorpay Setup)
+## 4) Smoke Tests
 
-1. Go to **[razorpay.com](https://razorpay.com)** → Create account (free, 2% fee per transaction)
-2. Dashboard → **Payment Links** → **Create Link**
-3. Set amount to ₹2,999, title "Vector-Pulse Growth Plan"
-4. Copy the link and paste it into `landing/index.html` → `href` on the Growth plan button
-5. Change `your@email.com` instances to your real email in `landing/index.html`.
-6. Push the updated `index.html` to GitHub for Render to auto-deploy it!
-
----
-
-## Step 5 — Issue Your First API Key
-
-Once Render is live, run this once to create a test key:
+### Signup
 
 ```bash
-curl -X POST https://vector-pulse-api.onrender.com/v1/register \
+curl -X POST https://vector-pulse-api.onrender.com/api/v1/security/auth/signup \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","plan":"starter","admin_key":"YOUR_ADMIN_SECRET_KEY"}'
+  -d '{"email":"test@example.com","password":"StrongPass@123"}'
 ```
 
-You'll get back an `api_key`. Test it:
+### Risk Scan
+
+Use JWT token from signup/login response:
 
 ```bash
-curl -X POST https://vector-pulse-api.onrender.com/v1/risk-check \
-  -H "X-API-Key: vp_your_key_here" \
+curl -X POST https://vector-pulse-api.onrender.com/api/v1/risk/scan \
+  -H "Authorization: Bearer <JWT_TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{"uid":"user_1","amt":1200,"addr":"HSR Layout","pin":"560102"}'
+  -d '{"uid":"user_1","email":"user@example.com","phone":"9999999999","amt":1200,"addr":"HSR Layout","pin":"560102"}'
 ```
 
----
+### Health
 
-## Step 6 — Final Verification
-
-Visit your Render URL to see the live landing page. Verify the Merchant Portal works by logging in with your generated API key.
-
-## Step 7 — Get Your First Customer
-
-**LinkedIn message template:**
-> "Hey [Name], I see you run [Store]. RTO returns are bleeding margins across D2C right now. I built a fraud detection API that flags fake COD orders in <5ms. Free tier, no infra needed. Mind if I set it up for you for free for 30 days? Happy to show the savings live."
-
-**Tweet template:**
-> "Built a real-time RTO fraud engine for Indian e-commerce with Rust + Python. Blocks fake COD orders in &lt;5ms using Z-Score + Sybil detection. Free API tier available. DM me if you run a D2C store 🧵 [screenshot of monitor dashboard]"
-
----
-
-## Quick Reference
-
-| Service | Cost |
-|---------|------|
-| API Backend & UI (Render) | ₹0 |
-| Cache & Feature Store (Upstash) | ₹0 |
-| Payments (Razorpay) | ₹0 upfront (2% per txn) |
+```bash
+curl https://vector-pulse-api.onrender.com/api/v1/health
+```
