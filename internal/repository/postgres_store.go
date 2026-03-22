@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"vector-pulse/internal/domain"
+	"vantix/internal/domain"
 )
 
 type Store interface {

@@ -12,47 +12,71 @@ class ShieldMonitor:
     """
 
     def __init__(self):
-        self.window = 300 # 5 minute window
-        self.threshold_multiplier = 0.7 # Tighten thresholds by 30% when active
+        self.window = 600 # 10 minute window for wave detection
+        self.base_tighten_ratio = 0.8 # Tighten threshold by 20%
+        self.max_tighten_ratio = 0.5 # Maximum tightness (50% reduction)
 
     async def record_decision(self, is_blocked: bool):
         """Records a block event for the global monitor."""
         now = time.time()
         ts = int(now)
-        # Use a more unique member (ts:nano) to avoid collisions in high-volume bursts
         member = f"{now}"
         
-        key = rk("shield:event_log")
         async with r.pipeline() as pipe:
-            pipe.zadd(key, {member: ts})
+            pipe.zadd(rk("shield:event_log"), {member: ts})
             if is_blocked:
                 pipe.zadd(rk("shield:block_log"), {member: ts})
             
             # Cleanup old events
-            pipe.zremrangebyscore(key, 0, ts - self.window)
+            pipe.zremrangebyscore(rk("shield:event_log"), 0, ts - self.window)
             pipe.zremrangebyscore(rk("shield:block_log"), 0, ts - self.window)
             await pipe.execute()
 
+    async def record_feedback(self, is_fraud: bool):
+        """
+        Records human-verified fraud outcomes. 
+        Verified fraud is 3x more weighted than engine blocks.
+        """
+        if not is_fraud: return
+        
+        now = time.time()
+        ts = int(now)
+        async with r.pipeline() as pipe:
+            pipe.zadd(rk("shield:feedback_log"), {f"f_{now}": ts})
+            pipe.zremrangebyscore(rk("shield:feedback_log"), 0, ts - self.window)
+            await pipe.execute()
+        logger.info("SHIELD: Verified fraud feedback indexed. Immunity strength increasing.")
+
     async def is_shield_active(self) -> bool:
         """
-        Calculates the current block rate. 
-        If block rate > 30% and volume > 10 reqs, activate Shield Mode.
+        Calculates the current risk climate. 
+        Combines Engine Block Rate (30% weight) + Verified Fraud spikes (70% weight).
         """
-        int(time.time())
-        total_key = rk("shield:event_log")
-        block_key = rk("shield:block_log")
+        total_reqs = await r.zcard(rk("shield:event_log"))
+        blocked_reqs = await r.zcard(rk("shield:block_log"))
+        verified_fraud = await r.zcard(rk("shield:feedback_log"))
         
-        total_reqs = await r.zcard(total_key)
-        blocked_reqs = await r.zcard(block_key)
+        if total_reqs < 5: return False # Low volume noise
         
-        if total_reqs < 10: return False
+        # Calculate base pressure from blocks
+        block_pressure = (blocked_reqs / total_reqs) * 0.4 
+        # Calculate acute pressure from human feedback (normalized to 1.0)
+        feedback_pressure = min(1.0, (verified_fraud / 10.0)) * 0.6
         
-        block_rate = blocked_reqs / total_reqs
-        active = block_rate > 0.3
+        total_pressure = block_pressure + feedback_pressure
+        active = total_pressure > 0.25 # Threshold for activation
         
         if active:
-            logger.warning(f"SHIELD MODE ACTIVE: Block rate at {int(block_rate*100)}%")
+            logger.warning(f"SHIELD MODE ACTIVE: Pressure={total_pressure:.2f} (Blocks={blocked_reqs}, VerifiedFraud={verified_fraud})")
             
         return active
+
+    async def get_tightening_factor(self) -> float:
+        """Determines how much to shrink the decision threshold."""
+        if not await self.is_shield_active():
+            return 1.0
+        
+        # The higher the pressure, the lower the tightening factor (more aggressive)
+        return self.base_tighten_ratio
 
 shield_monitor = ShieldMonitor()

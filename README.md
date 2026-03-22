@@ -1,4 +1,4 @@
-# Vector Pulse
+# Vantix
 
 Production-ready fraud intelligence platform with:
 - Go backend API

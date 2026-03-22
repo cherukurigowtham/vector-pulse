@@ -1,4 +1,4 @@
-module vector-pulse
+module vantix
 
 go 1.25.6
 

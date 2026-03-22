@@ -7,8 +7,8 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
-	"vector-pulse/internal/middleware"
-	"vector-pulse/internal/service"
+	"vantix/internal/middleware"
+	"vantix/internal/service"
 )
 
 type MerchantHandler struct {
@@ -125,3 +125,4 @@ func (h *MerchantHandler) VerifyOrder(w http.ResponseWriter, r *http.Request) {
 		"payment_id": req.PaymentID,
 	})
 }
+

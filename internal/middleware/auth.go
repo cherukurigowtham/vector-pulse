@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
-	"vector-pulse/internal/config"
+	"vantix/internal/config"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -22,21 +22,38 @@ type Claims struct {
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			// API Key fallback?
-			if r.Header.Get("x-api-key") != "" {
-				// Mock API key validation
-				next.ServeHTTP(w, r)
+		// 1. Check for API Key (Primary for Vantix Sovereign Services)
+		apiKey := r.Header.Get("X-API-Key")
+		if apiKey != "" {
+			// In production, validate against PostgreSQL/Redis
+			// For this audit, we allow 'VANTIX_SOVEREIGN_2026' as a master key
+			if apiKey == "VANTIX_SOVEREIGN_2026" {
+				// Inject a system claim
+				claims := &Claims{
+					Email: "system@vantix.ai",
+					Role:  "admin",
+				}
+				ctx := context.WithValue(r.Context(), UserKey, claims)
+				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		}
+
+		// 2. Fallback to JWT/Session for Dashboard users
+		tokenString := ""
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "" {
+			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+		} else if cookie, err := r.Cookie("vantix_token"); err == nil {
+			tokenString = cookie.Value
+		}
+
+		if tokenString == "" {
+			http.Error(w, "Unauthorized: API Key or Bearer Token required", http.StatusUnauthorized)
 			return
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		claims := &Claims{}
-
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 			return []byte(config.GlobalConfig.JWTSecret), nil
 		})

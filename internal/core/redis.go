@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
-	"vector-pulse/internal/config"
+	"vantix/internal/config"
 
 	"github.com/redis/go-redis/v9"
 )

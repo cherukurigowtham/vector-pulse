@@ -259,7 +259,7 @@ async function saveChanges() {
 }
 
 function logout() {
-    document.cookie = 'vp_token=; Max-Age=0; path=/;';
+    document.cookie = 'vantix_token=; Max-Age=0; path=/;';
     window.location.reload();
 }
 

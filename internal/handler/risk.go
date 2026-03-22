@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
-	"vector-pulse/internal/domain"
-	"vector-pulse/internal/middleware"
-	"vector-pulse/internal/repository"
-	"vector-pulse/internal/service"
+	"vantix/internal/domain"
+	"vantix/internal/middleware"
+	"vantix/internal/repository"
+	"vantix/internal/service"
 )
 
 type RiskHandler struct {
@@ -55,13 +55,17 @@ func (h *RiskHandler) ScanOrder(w http.ResponseWriter, r *http.Request) {
 	if teamID != "" {
 		dbCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()
+
+		piiSvc := service.NewPIIService()
+		tokenizedEmail := piiSvc.Tokenize(order.Email)
+
 		_ = h.repo.InsertRiskEvent(dbCtx, repository.RiskEvent{
-			TeamID:   teamID,
-			UID:      order.UID,
-			Email:    order.Email,
-			Amount:   order.Amt,
-			Score:    result.Score,
-			Decision: result.Decision,
+			TeamID:         teamID,
+			UID:            order.UID,
+			TokenizedEmail: tokenizedEmail,
+			Amount:         order.Amt,
+			Score:          result.Score,
+			Decision:       result.Decision,
 		})
 	}
 

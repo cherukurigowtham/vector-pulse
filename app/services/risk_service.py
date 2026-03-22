@@ -509,7 +509,7 @@ async def run_risk_analysis(order: Order, merchant_key_hash: str | None, merchan
     graph_task = link_identity(uid, order.email, order.phone, address, client_ip, merchant_email)
     
     # Pillar 13 (v4): Behavioral Transformers (Cognitive Signal Analysis)
-    behavior_task = analyze_session_behavior(merchant_email, order.session_id) if order.session_id else asyncio.sleep(0, result=None)
+    behavior_task = analyze_session_behavior(merchant_email, order.session_id, order.device_hash) if order.session_id else asyncio.sleep(0, result=None)
     
     results = await asyncio.gather(
         velocity_task, sybil_task, price_task, trust_task, ip_task, 

@@ -33,17 +33,17 @@ export default function LandingPage() {
         <section className="flex flex-col lg:flex-row gap-16 lg:items-center">
           <div className="flex-1 animate-fade-in-up mt-12">
 
-            <h1 className="max-w-2xl text-[56px] font-bold leading-[1.05] tracking-tight text-zinc-900 sm:text-[72px] lg:text-[84px] mb-8">
-              Precision Risk <br/>
-              Intelligence.
-            </h1>
-            <p className="max-w-xl text-lg lg:text-xl text-zinc-500 font-normal leading-relaxed">
-              Built for Scale. Vantix provides deterministic decisioning and cryptographic audit trails for high-volume engineering teams.
-            </p>
+            <h1 className="text-4xl md:text-7xl font-bold mb-6 tracking-tight bg-gradient-to-r from-white via-zinc-400 to-zinc-600 bg-clip-text text-transparent">
+          Vantix: Precision Risk Intelligence
+        </h1>
+        <p className="text-lg md:text-xl text-zinc-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+          The autonomous sovereign engine for global high-velocity merchants.
+          Protecting the $10 Trillion Universal Ledger with zero-trust forensics.
+        </p>
             <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-              <Link href="/dashboard" className="inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3.5 text-sm font-medium !text-white hover:bg-zinc-800 transition-colors shadow-sm">
+              <Link href="/login" className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-900 px-8 py-4 text-base font-bold !text-white hover:bg-zinc-800 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-zinc-200/50 group">
                 Open dashboard
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <a href="#docs" className="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-6 py-3.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors shadow-sm">
                 Read documentation
@@ -119,7 +119,7 @@ export default function LandingPage() {
               </div>
               <p className="text-sm text-zinc-500">Install the SDK package in your Next.js or Node.js backend service.</p>
               <pre className="overflow-x-auto rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm font-semibold text-zinc-800">
-                <code>npm install @vector-pulse/node</code>
+                <code>npm install @vantix/node</code>
               </pre>
 
               <div className="mt-4 flex items-center gap-2 text-sm font-bold text-zinc-900">
@@ -139,10 +139,10 @@ export default function LandingPage() {
                 3. Code Implementation
               </div>
               <pre className="flex-1 overflow-x-auto rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-xs leading-[1.6] text-zinc-800">
-                <code>{`const { VectorPulseClient } = require('@vector-pulse/node')
+                <code>{`const { VantixClient } = require('@vantix/node')
 
 // Initialize with your private live key
-const client = new VectorPulseClient('vp_live_key...')
+const client = new VantixClient('vp_live_key...')
 
 async function processOrder(order) {
   // Synchronous risk computation

@@ -11,10 +11,12 @@ export default function Footer() {
               <div className="flex items-center justify-center text-white">
                 <Zap className="h-6 w-6 stroke-[2.5px]" fill="currentColor" />
               </div>
-              <span className="text-xl font-bold tracking-tight text-white">Vantix</span>
+              <span className="text-xl font-bold bg-gradient-to-r from-white to-zinc-500 bg-clip-text text-transparent">
+              Vantix
+            </span>
             </Link>
-            <p className="text-sm leading-relaxed text-zinc-400 max-w-xs">
-              Deterministic risk intelligence and structural governance for massive engineering teams. Built for high-volume scale.
+            <p className="text-zinc-500 text-sm mb-6 max-w-xs">
+            The autonomous risk intelligence layer for the $10 trillion global ledger.
             </p>
           </div>
           
@@ -51,7 +53,7 @@ export default function Footer() {
 
         <div className="mt-16 pt-8 border-t border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-6">
           <p className="text-sm text-zinc-500">
-            &copy; {new Date().getFullYear()} Vector Pulse Inc. All rights reserved.
+            &copy; {new Date().getFullYear()} Vantix Inc. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-sm font-medium text-zinc-500">
             <div className="flex items-center gap-2 bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800 shadow-sm">

@@ -12,17 +12,19 @@ class BehavioralAnalyzer:
     Analyzes session clickstreams to detect anomalies using attention-inspired logic.
     """
     
-    def __init__(self, merchant_id: str, session_id: str):
+    def __init__(self, merchant_id: str, session_id: str, device_hash: str | None = None):
         self.merchant_id = merchant_id
         self.session_id = session_id
-        self.key = rk(f"behavior:stream:{merchant_id}:{session_id}")
+        self.device_hash = device_hash
+        self.stream_key = rk(f"behavior:stream:{merchant_id}:{session_id}")
+        self.dna_key = rk(f"behavior:dna:{device_hash}") if device_hash else None
 
     async def get_signals(self) -> Dict[str, Any]:
         """
         Retrieves and analyzes the current session stream.
         Calculates entropy, velocity, and pattern deviations.
         """
-        raw_events = await r.lrange(self.key, 0, -1)
+        raw_events = await r.lrange(self.stream_key, 0, -1)
         if not raw_events:
             return {"score_impact": 0, "reason": "No behavioral signals yet"}
 
@@ -45,16 +47,45 @@ class BehavioralAnalyzer:
         # Uses a transition matrix to detect impossible automation sequences
         transition_penalty = self._calculate_transition_probability(events)
         
-        total_impact = min(60.0, float(entropy + form_velocity_penalty + sequence_penalty + transition_penalty))
+        # 5. DNA Persistence Check (Phase 11)
+        # Compare current 'rhythm' with historical DNA for this device
+        dna_anomaly = await self._check_dna_persistence(entropy, form_velocity_penalty)
+        
+        total_impact = min(80.0, float(entropy + form_velocity_penalty + sequence_penalty + transition_penalty + dna_anomaly))
         
         return {
             "score_impact": float(total_impact),
             "entropy": float(f"{float(entropy):.2f}"),
             "form_velocity_score": float(form_velocity_penalty),
             "sequence_anomaly": float(sequence_penalty),
-            "transition_anomaly": float(transition_penalty),
+            "transition_anomaly": float(transition_anomaly),
+            "dna_anomaly": float(dna_anomaly),
             "event_count": len(events)
         }
+
+    async def _check_dna_persistence(self, current_entropy: float, current_velocity: float) -> float:
+        """
+        Matches 'Interaction Rhythm' against previous sessions on this device.
+        Bots have suspiciously identical DNA fingerprints across sessions.
+        """
+        if not self.dna_key:
+            return 0.0
+
+        # DNA Fingerprint = rounded tuple of entropy/velocity
+        dna_fingerprint = f"{round(current_entropy, 1)}:{round(current_velocity, 1)}"
+        
+        # Check if this exact rhythm already exists for this device
+        is_known = await r.sismember(self.dna_key, dna_fingerprint)
+        if is_known:
+            # If a high-penalty rhythm repeats, it's almost certainly a script.
+            if current_entropy > 20 or current_velocity > 20:
+                return 40.0 # Extreme Red Flag: Robotic Consistency
+            return 15.0 # Low Red Flag: Pattern Re-use
+        
+        # Store for future sessions (TTL 30 days)
+        await r.sadd(self.dna_key, dna_fingerprint)
+        await r.expire(self.dna_key, 86400 * 30)
+        return 0.0
 
     def _calculate_navigation_entropy(self, events: List[Dict]) -> float:
         """Calculates randomness in interaction timings."""
@@ -127,6 +158,6 @@ class BehavioralAnalyzer:
                 
         return min(30.0, float(total_penalty))
 
-async def analyze_session_behavior(merchant_email: str, session_id: str) -> Dict[str, Any]:
-    analyzer = BehavioralAnalyzer(merchant_email, session_id)
+async def analyze_session_behavior(merchant_email: str, session_id: str, device_hash: str | None = None) -> Dict[str, Any]:
+    analyzer = BehavioralAnalyzer(merchant_email, session_id, device_hash)
     return await analyzer.get_signals()

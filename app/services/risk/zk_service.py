@@ -1,6 +1,7 @@
-import hashlib
 import hmac
+import hashlib
 import logging
+from app.core.redis import r
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,28 @@ class ZKService:
         commitment = hmac.new(key, pii.strip().lower().encode(), hashlib.sha256).hexdigest()
         
         return f"zk_commit_{commitment[:16]}"
+
+    async def get_aura_score(self, pii: str, merchant_id: str, salt: str, v_type: str = "email") -> float:
+        """
+        Calculates the 'Identity Aura' strength.
+        Aura = Total unique merchants who have verified this identity globally.
+        Returns a negative risk bonus (e.g., -40.0 for high trust).
+        """
+        commit = self.generate_commitment(pii, merchant_id, salt)
+        # Use v_hash equivalent to what the consortium hears
+        v_hash = commit[:16] # Shortened for the Aura ledger
+        
+        aura_key = f"vantix:identity_aura:{v_type}:{v_hash}"
+        trust_units = await r.pfcount(aura_key)
+        
+        if trust_units >= 10:
+            return -45.0 # Galactic Level Trust: Instant Approval
+        elif trust_units >= 3:
+            return -20.0 # Institutional Level Trust
+        elif trust_units >= 1:
+            return -5.0 # Basic Verification
+            
+        return 0.0
 
     async def verify_consortium_risk(self, pii: str, merchant_id: str, salt: str) -> Optional[float]:
         """

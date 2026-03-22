@@ -24,7 +24,7 @@ async def shopify_order_webhook(
     try:
         data = json.loads(body)
         
-        # Transform Shopify format to Vector-Pulse Order format
+        # Transform Shopify format to Vantix Order format
         # This is the "Strong Logic" part - mapping platform-specific fields
         {
             "uid": str(data.get("id")),

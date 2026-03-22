@@ -75,7 +75,7 @@ export default function AuthModal({ isOpen, mode, onClose, onAuthSuccess }: Auth
       currentMode === "signup" ? `${API_BASE}/api/v1/security/auth/signup` : `${API_BASE}/api/v1/security/auth/login`;
 
     try {
-      const payload: any = { email, password };
+      const payload: Record<string, string> = { email, password };
       if (currentMode === "signup") {
         payload.full_name = fullName;
         payload.company = companyName;

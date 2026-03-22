@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic"
 import { useEffect, useState } from "react"
-import { Activity, ArrowUpRight, ShieldAlert, ShieldCheck, Zap } from "lucide-react"
+import { Activity, ArrowUpRight, ShieldCheck, Zap, Lock } from "lucide-react"
 import { apiFetch } from "@/lib/api"
 import { GovernanceLog } from "@/components/dashboard/GovernanceLog"
 import { cn } from "@/lib/cn"
@@ -25,31 +25,29 @@ type GovernanceLogEntry = {
 }
 
 type DashboardStats = {
+  revenue_recovered?: number
+  settlement_velocity?: number
+  active_risk_score?: number
   total_scanned?: number
-  month_scans?: number
   blocks?: number
-  sla_metrics?: {
-    accuracy?: number
-    latency_ms?: number
-  }
+  sla_latency?: number
   governance_logs?: GovernanceLogEntry[]
-  identity_stats?: {
-    hits?: number
-    percentage?: number
-  }
+  api_key?: string
 }
 
 const SEED_DATA: DashboardStats = {
+  revenue_recovered: 12450840,
+  settlement_velocity: 98.4,
+  active_risk_score: 1.2,
   total_scanned: 8432,
-  month_scans: 8432,
   blocks: 312,
-  sla_metrics: { accuracy: 98.2, latency_ms: 14 },
+  sla_latency: 14,
+  api_key: "VANTIX_SOVEREIGN_2026",
   governance_logs: [
     { action: "BLOCK_RULE_UPDATED", timestamp: Math.floor(Date.now() / 1000) - 300, actor: "auto-governance" },
     { action: "HIGH_VELOCITY_QUARANTINE", timestamp: Math.floor(Date.now() / 1000) - 900, actor: "risk-engine" },
     { action: "THRESHOLD_RECALIBRATED", timestamp: Math.floor(Date.now() / 1000) - 3600, actor: "ml-model-v2" },
   ],
-  identity_stats: { hits: 74, percentage: 23.4 },
 }
 
 export default function Dashboard() {
@@ -97,7 +95,7 @@ export default function Dashboard() {
             const isBlocked = data.metrics.action === "BLOCKED";
             return {
               ...prev,
-              month_scans: (prev.month_scans || 0) + 1,
+              total_scanned: (prev.total_scanned || 0) + 1,
               blocks: isBlocked ? (prev.blocks || 0) + 1 : prev.blocks,
               governance_logs: isBlocked ? [{
                 action: data.metrics.vector,
@@ -107,7 +105,7 @@ export default function Dashboard() {
             }
           });
         }
-      } catch (err) {}
+      } catch (_err) {}
     };
 
     return () => ws.close()
@@ -115,35 +113,35 @@ export default function Dashboard() {
 
   const cards = [
     {
-      title: "Total Scans",
-      value: loading ? "..." : (stats.month_scans || stats.total_scanned || 0).toLocaleString(),
-      note: "+12.5%",
+      title: "Revenue Recovered",
+      value: loading ? "..." : `Rs ${(stats.revenue_recovered || 0).toLocaleString()}`,
+      note: "+12.4%",
+      icon: ShieldCheck,
+      color: "text-emerald-900 bg-emerald-100",
+      trend: "positive"
+    },
+    {
+      title: "Settlement Velocity",
+      value: loading ? "..." : `${stats.settlement_velocity || 0}%`,
+      note: "Instant",
+      icon: Zap,
+      color: "text-blue-900 bg-blue-100",
+      trend: "positive"
+    },
+    {
+      title: "Active Risk Score",
+      value: loading ? "..." : `${(stats.active_risk_score || 0).toFixed(1)}`,
+      note: "Optimal",
       icon: Activity,
       color: "text-zinc-900 bg-zinc-100",
       trend: "positive"
     },
     {
-      title: "Protected Revenue",
-      value: loading ? "..." : `Rs ${((stats.blocks || 0) * 450).toLocaleString()}`,
-      note: "Live",
-      icon: ArrowUpRight,
-      color: "text-zinc-900 bg-zinc-100",
-      trend: "neutral"
-    },
-    {
-      title: "Risk Blocks",
-      value: loading ? "..." : (stats.blocks || 0).toLocaleString(),
-      note: "+8.2%",
-      icon: ShieldAlert,
-      color: "text-zinc-900 bg-zinc-100",
-      trend: "negative"
-    },
-    {
-      title: "API Latency",
-      value: loading ? "..." : `${stats.sla_metrics?.latency_ms || 14}ms`,
-      note: "-2ms",
+      title: "Service Latency",
+      value: loading ? "..." : `${stats.sla_latency || 12}ms`,
+      note: "FAANG GRADE",
       icon: Zap,
-      color: "text-zinc-900 bg-zinc-100",
+      color: "text-amber-900 bg-amber-100",
       trend: "positive"
     },
   ]
@@ -229,14 +227,36 @@ export default function Dashboard() {
         </article>
 
         <article className="app-card p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-zinc-900">Identity Pulse</h2>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-              <ShieldCheck className="h-4 w-4" />
-              {(stats.identity_stats?.percentage || 0).toFixed(1)}% Active
-            </span>
+          <div className="flex flex-col h-full bg-zinc-900 rounded-2xl p-6 text-white overflow-hidden relative">
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10">
+                  <Lock className="h-5 w-5 text-zinc-400" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold tracking-tight">Vantix Service Mesh</h2>
+                  <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Sovereign API access</p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2">Primary API Key</label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-black/40 border border-white/5 rounded-lg px-4 py-3 text-xs font-mono text-zinc-400">
+                      {stats.api_key || "Generating..."}
+                    </code>
+                  </div>
+                </div>
+                <p className="text-[11px] text-zinc-500 leading-relaxed font-medium">
+                  Use this key for high-velocity (10k+ TPS) risk scoring via the Vantix Go engine. 
+                  JWT fallback is disabled for server-to-server sovereign forensics.
+                </p>
+              </div>
+            </div>
+            {/* Background decorative element */}
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-zinc-800/10 blur-3xl pointer-events-none" />
           </div>
-          <IdentityPulse stats={stats.identity_stats} />
         </article>
       </section>
     </div>

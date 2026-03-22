@@ -103,15 +103,15 @@ export default function Navigation() {
           <div className="hidden items-center gap-4 lg:flex">
             {!loggedIn ? (
               <>
-                <button onClick={() => openAuth("login")} className="px-4 py-2 text-sm font-semibold text-zinc-600 hover:text-zinc-900 transition-colors">
+                <Link href="/login" className="px-4 py-2 text-sm font-semibold text-zinc-600 hover:text-zinc-900 transition-colors">
                   Log in
-                </button>
-                <button
-                  onClick={() => openAuth("signup")}
+                </Link>
+                <Link
+                  href="/signup"
                   className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold !text-white hover:bg-zinc-800 transition-colors shadow-sm"
                 >
                   Get started
-                </button>
+                </Link>
               </>
             ) : (
               <>
@@ -160,12 +160,12 @@ export default function Navigation() {
           <div className="mt-8 pt-8 border-t border-zinc-100 space-y-4">
             {!loggedIn ? (
               <>
-                <button onClick={() => openAuth("login")} className="w-full rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors shadow-sm">
+                <Link href="/login" onClick={() => setDrawerOpen(false)} className="block w-full rounded-lg border border-zinc-200 px-4 py-2.5 text-center text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors shadow-sm">
                   Log in
-                </button>
-                <button onClick={() => openAuth("signup")} className="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium !text-white hover:bg-zinc-800 transition-colors shadow-sm">
+                </Link>
+                <Link href="/signup" onClick={() => setDrawerOpen(false)} className="block w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-center text-sm font-medium !text-white hover:bg-zinc-800 transition-colors shadow-sm">
                   Get started
-                </button>
+                </Link>
               </>
             ) : (
               <>

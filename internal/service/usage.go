@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
-	"vector-pulse/internal/core"
-	"vector-pulse/internal/domain"
+	"vantix/internal/core"
+	"vantix/internal/domain"
 )
 
 type UsageService struct {

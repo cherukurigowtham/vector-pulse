@@ -8,6 +8,7 @@ from app.core.config import RISK_CONFIG
 from app.core.redis import r
 from app.services.webhook_dispatcher import webhook_dispatcher
 from app.services.discovery.consortium import ConsortiumRing
+from app.core.rate_limiter import rate_limit
 
 router = APIRouter(prefix="/risk", tags=["Risk Analysis"])
 
@@ -16,7 +17,8 @@ async def scan_order(
     order: Order, 
     background_tasks: BackgroundTasks,
     merchant: dict = Depends(require_api_key),
-    engine: NeuralOrchestrator = Depends(get_risk_engine)
+    engine: NeuralOrchestrator = Depends(get_risk_engine),
+    _rate: None = rate_limit(key="risk_scan", limit=100, window=60),
 ):
     """
     Entry point for the modular Risk Engine.
@@ -28,10 +30,10 @@ async def scan_order(
         merchant_key_hash=merchant["key_hash"]
     )
     
-    # [PHASE 8] 🌍 Global Immune System Pre-Check
-    v_ip = getattr(order, "ip_address", None)
-    v_device = getattr(order, "device_fingerprint", None)
-    v_email = getattr(order.customer, "email", None) if getattr(order, "customer", None) else None
+    # [PHASE 8] 🌍 Global Immune System Pre-Check (Zero-Trust Shadows)
+    v_ip = order.ip
+    v_device = order.device_hash
+    v_email = order.email
     
     for v_type, v_hash in [("IP", v_ip), ("DEVICE", v_device), ("EMAIL", v_email)]:
         if v_hash and r.get(f"vantix:immune_system:{v_type}:{v_hash}"):
@@ -52,11 +54,11 @@ async def scan_order(
     decision = getattr(result, "decision", "ALLOW_COD")
     
     if score >= 85.0 or decision in ["QUARANTINE_REQUIRED", "FRAUD_CONFIRMED", "FORCE_PREPAID"]:
-        # 1. Hive-Mind Broadcast (Phase 8)
-        if getattr(order, "ip_address", None):
-             background_tasks.add_task(ConsortiumRing.broadcast_threat, merchant["email"], "IP", order.ip_address, score)
-        if getattr(order, "device_fingerprint", None):
-             background_tasks.add_task(ConsortiumRing.broadcast_threat, merchant["email"], "DEVICE", order.device_fingerprint, score)
+        # 1. Hive-Mind Broadcast (Phase 8) - Already tokenized by Order model
+        if order.ip:
+             background_tasks.add_task(ConsortiumRing.broadcast_threat, merchant["email"], "IP", order.ip, score)
+        if order.device_hash:
+             background_tasks.add_task(ConsortiumRing.broadcast_threat, merchant["email"], "DEVICE", order.device_hash, score)
 
         # 2. Autonomous Outbound Retaliation 
         payload = {

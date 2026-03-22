@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"vector-pulse/internal/config"
-	"vector-pulse/internal/repository"
+	"vantix/internal/config"
+	"vantix/internal/repository"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -101,6 +101,10 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (AuthRe
 		Role:    user.Role,
 		Token:   token,
 	}, nil
+}
+
+func (s *AuthService) GetUser(ctx context.Context, email string) (repository.User, error) {
+	return s.repo.GetUserByEmail(ctx, email)
 }
 
 func normalizeEmail(email string) string {

@@ -1,48 +1,47 @@
-# Stage 1: Absolute Builder
-FROM python:3.10-slim AS builder
+# Stage 1: Go Builder
+FROM golang:1.22-alpine AS go-builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go build -o vantix-engine ./cmd/server/main.go
 
-RUN apt-get update && apt-get install -y \
-    curl build-essential gcc make libpq-dev libffi-dev python3-dev \
-    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
-ENV PATH="/root/.cargo/bin:${PATH}"
+# Stage 2: Python Builder (for ML/DS components if needed)
+FROM python:3.10-slim AS py-builder
 WORKDIR /build
-
-# 1. Compile all Python dependencies into strict wheel archives instantly
 COPY requirements.txt .
 RUN pip wheel --no-cache-dir --wheel-dir /build/wheels -r requirements.txt
-
-# 2. Build the structural Rust engine into a wheel
-RUN pip install --no-cache-dir maturin
 COPY Cargo.toml Cargo.lock pyproject.toml ./
 COPY src/ ./src/
-RUN maturin build --release --out /build/wheels
+RUN apt-get update && apt-get install -y curl build-essential gcc \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    && export PATH="/root/.cargo/bin:${PATH}" \
+    && pip install --no-cache-dir maturin \
+    && maturin build --release --out /build/wheels
 
-# ==========================================
-# Stage 2: Pure Runner (Zero Compilers)
+# Stage 3: Sovereign Runner
 FROM python:3.10-slim
-
 WORKDIR /app
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
-
-# Inject bare runtime linkage for the pre-compiled C-extensions
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y curl libpq5 && rm -rf /var/lib/apt/lists/*
 
-# Install all pre-assembled wheels from Stage 1. No network compilation.
-COPY --from=builder /build/wheels /wheels
+# Copy Go binary
+COPY --from=go-builder /app/vantix-engine .
+
+# Copy Python wheels and install (for risk engine processing)
+COPY --from=py-builder /build/wheels /wheels
 RUN pip install --no-cache /wheels/* && rm -rf /wheels
 
+# Copy source code
 COPY . .
 
-# Final check of the structure
-RUN ls -la /app/app
-
 EXPOSE 8000
+ENV PORT=8000
 
+# Healthcheck hits the Go engine health endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8000/api/v1/risk/status || exit 1
+  CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
-CMD ["python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# Launch the High-Velocity Go Engine
+CMD ["./vantix-engine"]

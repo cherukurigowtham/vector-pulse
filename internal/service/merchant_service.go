@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	"vector-pulse/internal/repository"
+	"vantix/internal/repository"
 )
 
 type MerchantService struct {
@@ -66,7 +66,7 @@ func (s *MerchantService) GetSummary(ctx context.Context, teamID string) (Summar
 		recent = append(recent, map[string]any{
 			"id":     fmt.Sprintf("txn_%d", event.At.Unix()),
 			"uid":    event.UID,
-			"user":   event.Email,
+			"user":   event.TokenizedEmail,
 			"time":   event.At.Format(time.RFC3339),
 			"amt":    event.Amount,
 			"score":  event.Score,

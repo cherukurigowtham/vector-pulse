@@ -44,7 +44,7 @@ async def simulate_attack_wave():
     res = await engine.analyze(context, test_config)
     logger.info(f"Analysis result under Shield: {res['decision']} (Flags: {res['flags']})")
     
-    if "SHIELD_MODE_ACTIVE" in res["flags"]:
+    if any("SHIELD_MODE_ACTIVE" in f for f in res["flags"]):
         logger.info("PASSED: Shield Mode flag present in risk results.")
     else:
         logger.error("FAILED: Shield Mode flag missing.")

@@ -35,6 +35,11 @@ from app.services.cache_service import dfc
 from app.core.intelligence import get_cluster_risk_bonus, apply_outcome_feedback
 from app.services.quarantine_service import process_fraud_feedback
 from app.services.monitoring_service import track_decision_bias
+from app.services.risk.shield_monitor import shield_monitor
+from app.services.discovery.consortium import ConsortiumRing
+from app.services.flow.escrow_service import escrow_service
+from app.services.settlement.ledger_service import ledger_service
+from app.services.governance.recovery_service import recovery_service
 
 router = APIRouter(tags=["risk"])
 
@@ -363,7 +368,33 @@ async def check_order(
 
     risk_score = analysis["score"]
     is_blocked = (risk_score > risk_config["decision_threshold"]) and not order.shadow
-    action = "FORCE_PREPAID" if is_blocked else "ALLOW_COD"
+    
+    # Pillar 12: Galactic Flow Selection
+    action = analysis.get("decision", "ALLOW_COD" if not is_blocked else "FORCE_PREPAID")
+    if action == "BLOCK":
+        action = "FORCE_PREPAID"
+    elif action == "ALLOW":
+        action = "ALLOW_COD"
+    elif action == "ESCROW":
+        # Transaction is in the 'Safe Harbor' zone
+        bg.add_task(
+            escrow_service.lock_transaction, 
+            risk_id := secrets.token_hex(8), 
+            merchant_email, 
+            order.amt, 
+            f"SOFT_BLOCK:{','.join(analysis.get('flags', []))}"
+        )
+        return {
+            "uid": order.uid,
+            "risk_id": risk_id,
+            "decision": "ESCROW",
+            "shadow_mode": order.shadow,
+            "risk_score": float(f"{float(risk_score):.1f}"),
+            "risk_factors": analysis.get("flags", []),
+            "latency_ms": f"{(time.perf_counter() - start_time) * 1000:.2f}ms",
+            "escrow_ttl": 3600
+        }
+
     risk_id = secrets.token_hex(8)
 
     bg.add_task(
@@ -382,6 +413,11 @@ async def check_order(
     latency = (time.perf_counter() - start_time) * 1000
     bg.add_task(r.set, f"stats:latency:{merchant_email}", str(latency))
 
+    # Pillar 13: Universal Ledger Settlement (Planetary Scale)
+    settlement_rail = analysis.get("settlement_rail", "LEGACY_ACQUIRER")
+    if settlement_rail == "ULP_INSTANT":
+        bg.add_task(ledger_service.instant_settle, merchant_email, order.amt, risk_id)
+
     return {
         "uid": order.uid,
         "risk_id": risk_id,
@@ -390,6 +426,7 @@ async def check_order(
         "risk_score": float(f"{float(risk_score):.1f}"),
         "risk_factors": analysis.get("flags", []),
         "latency_ms": f"{latency:.2f}ms",
+        "settlement_rail": settlement_rail
     }
 
 
@@ -426,11 +463,25 @@ async def update_outcome(
         await AUDIT_STORE.update_outcome(
             update.risk_id, update.status, reason=update.reason
         )
-        # Pillar 1 & 2: Autonomous Intelligence Loop
-        merchant_email = key_data.get("email")
-        bg.add_task(
-            _handle_outcome_feedback, update.risk_id, update.status, merchant_email
-        )
+        # 2. Sovereign Feedback Loop: Strengthen Global Shield (Phase 11)
+        if update.status == "FRAUD_CONFIRMED":
+            bg.add_task(shield_monitor.record_feedback, True)
+            # Solo-Dev Ops: Check for False Positive Spikes and Auto-Rollback
+            merchant_email = key_data.get("email")
+            await r.incr(f"stats:fp_window:{merchant_email}")
+            bg.add_task(recovery_service.check_health, merchant_email)
+            
+        # 3. Identity Aura Injection: Strengthen Global Trust (Phase 12)
+        if update.status == "DELIVERED":
+            raw_context = await r.get(f"explain:{update.risk_id}")
+            if raw_context:
+                ctx = json.loads(raw_context)
+                identities = ctx.get("identities", {})
+                merchant_email = key_data.get("email")
+                for v_type, v_value in identities.items():
+                    if v_value:
+                        bg.add_task(ConsortiumRing.broadcast_trust, merchant_email, v_type, v_value)
+                logger.info(f"AURA: Trust units broadcasted for {update.risk_id}")
 
         if update.status == "FRAUD_CONFIRMED":
             # Extract order_hash from the explain context if possible

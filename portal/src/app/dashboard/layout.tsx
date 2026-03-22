@@ -1,14 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Menu, ChevronRight, Home, LogOut } from "lucide-react"
 import { SideNav } from "@/components/dashboard/SideNav"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/cn"
+import { apiFetch } from "@/lib/api"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+
+  // Session Gate: verify token is still valid on every layout mount
+  useEffect(() => {
+    apiFetch("/security/auth/me").catch(() => {
+      router.replace("/")
+    })
+  }, [router]) // Added 'router' to dependency array for linting
 
   const pathParts = pathname.split('/').filter(Boolean)
 

@@ -2,180 +2,130 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Lock, CheckCircle2 } from "lucide-react";
+import { Loader2, Lock, CheckCircle2, ShieldCheck, CreditCard } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 export default function PaymentForm({ plan }: { plan: string }) {
   const router = useRouter();
+  
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<"PLAN" | "VERIFYING">("PLAN");
 
-  const [form, setForm] = useState({
-    name: "",
-    card: "",
-    exp: "",
-    cvc: ""
-  });
-
-  const handleCardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, "");
-    if (value.length > 16) value = value.slice(0, 16);
-    const groups = value.match(/.{1,4}/g);
-    setForm({ ...form, card: groups ? groups.join(" ") : "" });
-  };
-
-  const handleExpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, "");
-    if (value.length > 4) value = value.slice(0, 4);
-    if (value.length >= 2) {
-      value = `${value.slice(0, 2)}/${value.slice(2)}`;
-    }
-    setForm({ ...form, exp: value });
-  };
-
-  const handleCvcChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, "");
-    if (value.length > 4) value = value.slice(0, 4);
-    setForm({ ...form, cvc: value });
-  };
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onMockPay = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const [expMonth, expYear] = form.exp.split("/");
-      const res = await apiFetch("/merchant/billing/checkout", {
+      // Step 1: Create Order in Go Engine
+      const orderData = await apiFetch("/merchant/payments/orders", {
+        method: "POST",
+        body: JSON.stringify({ amount: 49.99 })
+      });
+
+      const orderId = orderData.id;
+
+      // Step 2: Simulate Razorpay Handshake (2.5s simulated gateway processing)
+      setStep("VERIFYING");
+      await new Promise(resolve => setTimeout(resolve, 2500));
+
+      // Step 3: Verify & Settle
+      const verifyRes = await apiFetch("/merchant/payments/verify", {
         method: "POST",
         body: JSON.stringify({
-          plan_tier: plan,
-          card_number: form.card.replace(/\s/g, ""),
-          exp_month: expMonth || "",
-          exp_year: expYear || "",
-          cvc: form.cvc,
-          name_on_card: form.name
+          razorpay_order_id: orderId,
+          razorpay_payment_id: `pay_mock_${Date.now()}`,
+          razorpay_signature: "mock_sig_v1_vp_sovereign"
         })
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.detail || "Payment failed to process.");
-      }
+      // apiFetch throws if not ok, so no need for manual check if we just want the error reported.
+      // But VerifyOrder returns json which apiFetch parses.
 
       setSuccess(true);
       setTimeout(() => {
         router.push("/dashboard");
       }, 2000);
 
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Financial rail error. Contact support.");
       setLoading(false);
+      setStep("PLAN");
     }
   };
 
   if (success) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center animate-in fade-in zoom-in duration-500">
-        <div className="h-16 w-16 bg-emerald-100 rounded-full flex items-center justify-center mb-6">
-          <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+      <div className="flex flex-col items-center justify-center py-16 text-center animate-in fade-in zoom-in duration-500">
+        <div className="h-20 w-20 bg-emerald-100 rounded-full flex items-center justify-center mb-8 shadow-inner shadow-emerald-200">
+          <CheckCircle2 className="h-10 w-10 text-emerald-600" />
         </div>
-        <h3 className="text-2xl font-bold text-zinc-900 mb-2">Payment Successful</h3>
-        <p className="text-zinc-500">Your organization has been upgraded. Redirecting to dashboard...</p>
+        <h3 className="text-[28px] font-bold text-zinc-900 mb-3 tracking-tight">Access Granted</h3>
+        <p className="text-zinc-500 font-medium max-w-[280px] leading-relaxed">Your sovereign workspace has been upgraded to <strong>{plan}</strong>.</p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1.5">Cardholder Name</label>
-          <input
-            type="text"
-            required
-            className="w-full px-4 py-2 bg-white border border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all placeholder:text-zinc-300"
-            placeholder="Jane Doe"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            disabled={loading}
-          />
+    <div className="space-y-8">
+      <div className="bg-zinc-50/50 rounded-2xl border border-zinc-100 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">Plan Selection</h4>
+          <span className="bg-zinc-900 text-white text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-tighter">Billed Monthly</span>
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1.5">Card Number</label>
-          <div className="relative">
-            <input
-              type="text"
-              required
-              className="w-full pl-11 pr-4 py-2 bg-white border border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all placeholder:text-zinc-300 font-mono"
-              placeholder="0000 0000 0000 0000"
-              value={form.card}
-              onChange={handleCardChange}
-              disabled={loading}
-            />
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-            </svg>
-          </div>
+        <div className="flex items-baseline gap-1">
+          <span className="text-[40px] font-black text-zinc-900">₹4,999</span>
+          <span className="text-zinc-400 font-bold text-lg">/mo</span>
         </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Expiration</label>
-            <input
-              type="text"
-              required
-              className="w-full px-4 py-2 bg-white border border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all placeholder:text-zinc-300 font-mono"
-              placeholder="MM/YY"
-              value={form.exp}
-              onChange={handleExpChange}
-              disabled={loading}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1.5">CVC</label>
-            <input
-              type="text"
-              required
-              className="w-full px-4 py-2 bg-white border border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-all placeholder:text-zinc-300 font-mono"
-              placeholder="123"
-              value={form.cvc}
-              onChange={handleCvcChange}
-              disabled={loading}
-            />
-          </div>
-        </div>
+        <p className="mt-2 text-sm font-medium text-zinc-600 italic">Advanced Neural Risk Intelligence with T-0 Settlement.</p>
       </div>
 
-      {error && (
-        <div className="p-4 rounded-lg bg-red-50 border border-red-100 text-sm text-red-600 font-medium">
-          {error}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-blue-50 bg-blue-50/30">
+          <ShieldCheck className="h-5 w-5 text-blue-600" />
+          <p className="text-xs font-semibold text-blue-800 leading-tight">
+            Razorpay Integration is currently in "Mock Mode". No real money will be deducted during this final verification phase.
+          </p>
         </div>
-      )}
 
-      <button
-        type="submit"
-        disabled={loading || form.card.length < 19}
-        className="w-full relative flex items-center justify-center gap-2 bg-black hover:bg-zinc-800 text-white font-medium py-3 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Processing Network...
-          </>
-        ) : (
-          <>
-            <Lock className="h-4 w-4" />
-            Pay Now
-          </>
+        {error && (
+          <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600 font-bold">
+            {error}
+          </div>
         )}
-      </button>
 
-      <p className="text-[11px] text-center text-zinc-500 font-medium pt-2">
-        Secured by Vantix Simulated Gateway &middot; 256-bit AES
-      </p>
-    </form>
+        <button
+          onClick={onMockPay}
+          disabled={loading}
+          className="w-full relative h-[60px] flex items-center justify-center gap-3 bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-lg rounded-xl transition-all hover:scale-[1.01] active:scale-[0.99] shadow-xl shadow-zinc-200 disabled:opacity-70"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              {step === "PLAN" ? "Initializing..." : "Quantum Settlement..."}
+            </>
+          ) : (
+            <>
+              <CreditCard className="h-5 w-5" />
+              Upgrade to {plan}
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="flex flex-col items-center gap-4 pt-4">
+        <div className="flex items-center gap-2 opacity-30 grayscale cursor-not-allowed">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900">Razorpay</span>
+            <div className="h-3 w-[1px] bg-zinc-300" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900">VISA</span>
+            <div className="h-3 w-[1px] bg-zinc-300" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900">Mastercard</span>
+        </div>
+        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
+          <Lock className="h-3 w-3" /> Secure Bank-Grade Infrastructure
+        </p>
+      </div>
+    </div>
   );
 }

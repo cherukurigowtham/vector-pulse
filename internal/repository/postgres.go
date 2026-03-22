@@ -14,13 +14,13 @@ type User struct {
 }
 
 type RiskEvent struct {
-	TeamID   string
-	UID      string
-	Email    string
-	Amount   float64
-	Score    float64
-	Decision string
-	At       time.Time
+	TeamID         string
+	UID            string
+	TokenizedEmail string
+	Amount         float64
+	Score          float64
+	Decision       string
+	At             time.Time
 }
 
 type PaymentRecord struct {
@@ -31,10 +31,10 @@ type PaymentRecord struct {
 }
 
 type RiskEventSummary struct {
-	UID      string
-	Email    string
-	Amount   float64
-	Score    float64
+	UID            string
+	TokenizedEmail string
+	Amount         float64
+	Score          float64
 	Decision string
 	At       time.Time
 }
@@ -76,9 +76,9 @@ func (p *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (
 
 func (p *PostgresRepository) InsertRiskEvent(ctx context.Context, event RiskEvent) error {
 	_, err := p.db.ExecContext(ctx, `
-		INSERT INTO risk_events(team_id, uid, user_email, amount, score, decision)
-		VALUES($1,$2,$3,$4,$5,$6)
-	`, event.TeamID, event.UID, event.Email, event.Amount, event.Score, event.Decision)
+	INSERT INTO risk_events(team_id, uid, user_email, amount, score, decision)
+	VALUES($1,$2,$3,$4,$5,$6)
+`, event.TeamID, event.UID, event.TokenizedEmail, event.Amount, event.Score, event.Decision)
 	return err
 }
 
@@ -107,7 +107,7 @@ func (p *PostgresRepository) ListRecentRiskEvents(ctx context.Context, teamID st
 	result := make([]RiskEventSummary, 0, limit)
 	for rows.Next() {
 		var item RiskEventSummary
-		if scanErr := rows.Scan(&item.UID, &item.Email, &item.Amount, &item.Score, &item.Decision, &item.At); scanErr != nil {
+		if scanErr := rows.Scan(&item.UID, &item.TokenizedEmail, &item.Amount, &item.Score, &item.Decision, &item.At); scanErr != nil {
 			return nil, scanErr
 		}
 		result = append(result, item)

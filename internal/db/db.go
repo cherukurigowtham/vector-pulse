@@ -3,7 +3,7 @@ package db
 import (
 	"database/sql"
 	"log"
-	"vector-pulse/internal/config"
+	"vantix/internal/config"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )

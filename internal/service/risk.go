@@ -5,7 +5,7 @@ import (
 	"hash/fnv"
 	"math"
 	"sync/atomic"
-	"vector-pulse/internal/domain"
+	"vantix/internal/domain"
 )
 
 type RiskService struct {

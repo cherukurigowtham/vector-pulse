@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, EmailStr, field_validator
+from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator
 import unicodedata
 from typing import Any, Literal, List, Dict
+from app.services.tokenization_service import token_service
 
 class Order(BaseModel):
     uid: str = Field(..., min_length=1, max_length=64)
@@ -28,6 +29,27 @@ class Order(BaseModel):
             v = "".join(ch for ch in v if unicodedata.category(ch)[0] != "C")
             return v.strip()
         return v
+
+    def tokenize(self) -> "Order":
+        """
+        Zero-Trust Enforcer: Explicitly converts toxic PII into Identity Shadows.
+        Should be called after all intelligence lookups (GeoIP, etc.) are complete.
+        """
+        if not getattr(self, "_tokenized", False):
+            # Create safe display version of email for logs
+            if self.email:
+                self.name = f"{token_service.anonymize_email(self.email)} (Shadow)"
+            
+            # Tokenize hot fields
+            self.email = token_service.tokenize(self.email)
+            self.phone = token_service.tokenize(self.phone)
+            self.ip = token_service.tokenize_ip(self.ip)
+            self.addr = token_service.tokenize(self.addr) # High-entropy address shadow
+            
+            # Mark as tokenized to avoid double-hashing
+            object.__setattr__(self, "_tokenized", True)
+            
+        return self
 
 class RegisterRequest(BaseModel):
     email: str

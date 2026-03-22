@@ -14,16 +14,6 @@ import {
   YAxis,
 } from "recharts"
 
-const data = [
-  { time: "00:00", scans: 400, blocks: 24 },
-  { time: "04:00", scans: 300, blocks: 18 },
-  { time: "08:00", scans: 900, blocks: 60 },
-  { time: "12:00", scans: 1500, blocks: 130 },
-  { time: "16:00", scans: 1200, blocks: 90 },
-  { time: "20:00", scans: 800, blocks: 45 },
-  { time: "23:59", scans: 500, blocks: 30 },
-]
-
 import type { WSMetricPayload } from "@/app/dashboard/page"
 
 const threatData = [
@@ -45,17 +35,19 @@ export function RiskPulseChart({ wsMetrics }: { wsMetrics?: WSMetricPayload }) {
   useEffect(() => {
     if (!wsMetrics) return;
     
-    setActiveData((prev) => {
-      const next = [...prev.slice(1)]
-      const lastScans = next[next.length - 1].scans;
-      const lastBlocks = next[next.length - 1].blocks;
+    Promise.resolve().then(() => {
+      setActiveData((prev) => {
+        const next = [...prev.slice(1)]
+        const lastScans = next[next.length - 1].scans;
+        const lastBlocks = next[next.length - 1].blocks;
 
-      next.push({
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        scans: lastScans + (Math.random() > 0.5 ? 2 : -1),
-        blocks: wsMetrics.action === "BLOCKED" ? lastBlocks + 1 : lastBlocks,
+        next.push({
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          scans: lastScans + (Math.random() > 0.5 ? 2 : -1),
+          blocks: wsMetrics.action === "BLOCKED" ? lastBlocks + 1 : lastBlocks,
+        })
+        return next
       })
-      return next
     })
   }, [wsMetrics])
 
@@ -112,12 +104,14 @@ export function ThreatDistributionChart({ wsMetrics }: { wsMetrics?: WSMetricPay
   useEffect(() => {
     if (!wsMetrics) return;
     if (wsMetrics.action === "BLOCKED" && wsMetrics.vector) {
-      setActiveThreatData((prev) => {
-        return prev.map(t => {
-          if (t.name.toUpperCase().includes(wsMetrics.vector.split('_')[0])) {
-            return { ...t, value: t.value + Math.floor(Math.random() * 5 + 1) };
-          }
-          return t;
+      Promise.resolve().then(() => {
+        setActiveThreatData((prev) => {
+          return prev.map(t => {
+            if (t.name.toUpperCase().includes(wsMetrics.vector.split('_')[0])) {
+              return { ...t, value: t.value + Math.floor(Math.random() * 5 + 1) };
+            }
+            return t;
+          })
         })
       })
     }

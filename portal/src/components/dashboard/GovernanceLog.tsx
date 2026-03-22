@@ -57,7 +57,9 @@ function CopilotModal({ riskId, onClose }: { riskId: string, onClose: () => void
 
 function TimeDisplay({ timestamp }: { timestamp: number | string }) {
   const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    Promise.resolve().then(() => setMounted(true))
+  }, [])
 
   if (!mounted) return <span className="w-16 shrink-0 opacity-0" />
 

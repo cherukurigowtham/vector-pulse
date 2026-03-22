@@ -20,7 +20,7 @@ export default function DocsPage() {
         </div>
         <p className="text-sm text-slate-600">Install the SDK package in your Next.js or Node.js backend service.</p>
         <pre className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-800">
-          <code>npm install @vector-pulse/node</code>
+          <code>npm install @vantix/node</code>
         </pre>
       </section>
 
@@ -30,7 +30,7 @@ export default function DocsPage() {
           2. SDK Usage
         </div>
         <pre className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-relaxed text-slate-800">
-          <code>{`const { VectorPulseClient } = require('@vector-pulse/node')
+          <code>{`const { VectorPulseClient } = require('@vantix/node')
 const client = new VectorPulseClient('vp_live_key')
 
 async function processOrder(order) {

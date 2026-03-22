@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 	"github.com/golang-jwt/jwt/v5"
-	"vector-pulse/internal/core"
-	"vector-pulse/internal/domain"
-	"vector-pulse/internal/service"
+	"vantix/internal/core"
+	"vantix/internal/domain"
+	"vantix/internal/service"
 )
 
 type AuthHandler struct {
@@ -29,25 +29,33 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("Processing signup for email: %s", req.Email)
 
-	token, apiKey, err := h.authService.Signup(r.Context(), req)
+	// Fix: Call Signup with correct arguments (email, password)
+	result, err := h.authService.Signup(r.Context(), req.Email, req.Password)
 	if err != nil {
 		log.Printf("Signup service error: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	isLocal := r.Host == "localhost:8000" || r.Host == "127.0.0.1:8000"
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "vp_token",
-		Value:    token,
+		Value:    result.Token,
 		Path:     "/",
 		HttpOnly: true,
 		Expires:  time.Now().Add(24 * time.Hour),
-		SameSite: http.SameSiteNoneMode,
-		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   !isLocal,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(domain.AuthResponse{Message: "Account created successfully", APIKey: apiKey})
+	// Use placeholder API key for now as in Me()
+	json.NewEncoder(w).Encode(domain.AuthResponse{
+		Status:  "success",
+		Message: "Account created successfully", 
+		APIKey:  "vp_live_********************",
+	})
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -60,21 +68,24 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("Processing login for email: %s", req.Email)
 
-	token, err := h.authService.Login(r.Context(), req)
+	// Fix: Call Login with correct arguments (email, password)
+	result, err := h.authService.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
 		log.Printf("Login service error for %s: %v", req.Email, err)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
+	isLocal := r.Host == "localhost:8000" || r.Host == "127.0.0.1:8000"
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "vp_token",
-		Value:    token,
+		Value:    result.Token,
 		Path:     "/",
 		HttpOnly: true,
 		Expires:  time.Now().Add(24 * time.Hour),
-		SameSite: http.SameSiteNoneMode,
-		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   !isLocal,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -116,14 +127,12 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email := claims["sub"].(string)
+	email, _ := claims["email"].(string)
 	user, err := h.authService.GetUser(r.Context(), email)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
-
-	// email := claims["sub"].(string) - already used above
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -131,6 +140,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		"role":     user.Role,
 		"team_id":  user.TeamID,
 		"is_admin": user.Role == "ADMIN",
-		"api_key":  "vp_live_********************", // Placeholder for masking
+		"api_key":  "vp_live_********************",
 	})
 }
+

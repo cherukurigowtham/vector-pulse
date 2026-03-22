@@ -20,8 +20,13 @@ class BehavioralPillar(BaseRiskPillar):
             context.impacts["BEHAVIORAL_DNA"] = float(dna_score)
 
         # 2. Sequential Cognitive Signals (Transformer-based)
+        # 2. Sequential Cognitive Signals (Transformer-based)
         if context.order.session_id:
-            behavior_res = await analyze_session_behavior(context.merchant_email, context.order.session_id)
+            behavior_res = await analyze_session_behavior(
+                context.merchant_email, 
+                context.order.session_id,
+                context.order.device_hash
+            )
             if behavior_res and "score_impact" in behavior_res:
                 impact = behavior_res["score_impact"]
                 context.impacts["COGNITIVE_ANOMALY"] = float(impact)
