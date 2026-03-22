@@ -23,7 +23,7 @@ REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 REDIS_SSL = os.getenv("REDIS_SSL", "false").lower() == "true"
-REDIS_PREFIX = os.getenv("REDIS_PREFIX", "vp:dev").strip()
+REDIS_PREFIX = os.getenv("REDIS_PREFIX", "vx:dev").strip()
 REDIS_KEY_VERSION = "v1"
 
 CORS_ALLOW_ORIGINS = [
@@ -114,7 +114,7 @@ RISK_CONFIG_BOUNDS = {
 ADMIN_KEY = os.getenv("ADMIN_SECRET_KEY", "local-dev-admin-key")
 SESSION_COOKIE_SECURE = ENVIRONMENT == "production"
 RISK_FAIL_CLOSED = _env_bool("RISK_FAIL_CLOSED", False)  # Default to fail-open (safer for business)
-VANTIX_SALT = os.getenv("VANTIX_SALT", "vector-pulse-collective-defense-2024")
+VANTIX_SALT = os.getenv("VANTIX_SALT", "vantix-sovereign-collective-defense-2026")
 
 # JWT Configuration
 JWT_SECRET = os.getenv("JWT_SECRET", "vantix-dev-secret-keep-it-safe")
